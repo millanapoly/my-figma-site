@@ -12,23 +12,28 @@ import { Reporting } from "./components/Reporting";
 import { QuarterlyDiscount } from "./components/QuarterlyDiscount";
 import { Analytics } from "./components/Analytics";
 
-export const router = createBrowserRouter([
-  {
-    path: "/",
-    Component: Layout,
-    children: [
-      { index: true, Component: Dashboard },
+export const router = createBrowserRouter(
+  [
+    {
+      path: "/",
+      Component: Layout,
+      children: [
+        { index: true, Component: Dashboard },
 
-      { path: "quarter-discount", Component: QuarterlyDiscount },
-      { path: "new-orders", Component: NewOrders },
-      { path: "new-orders/:orderId", Component: OrderDetail },
-      { path: "shipments", Component: Shipments },
-      { path: "finances", Component: Finances },
-      { path: "complaints", Component: Complaints },
-      { path: "loyalty", Component: LoyaltyProgram },
-      { path: "news", Component: News },
-      { path: "reporting", Component: Reporting },
-      { path: "analytics", Component: Analytics },
-    ],
-  },
-]);
+        { path: "quarter-discount", Component: QuarterlyDiscount },
+        { path: "new-orders", Component: NewOrders },
+        { path: "new-orders/:orderId", Component: OrderDetail },
+        { path: "shipments", Component: Shipments },
+        { path: "finances", Component: Finances },
+        { path: "complaints", Component: Complaints },
+        { path: "loyalty", Component: LoyaltyProgram },
+        { path: "news", Component: News },
+        { path: "reporting", Component: Reporting },
+        { path: "analytics", Component: Analytics },
+      ],
+    },
+  ],
+  {
+    basename: "/my-figma-site",
+  }
+);
