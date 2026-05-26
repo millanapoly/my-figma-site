@@ -1,6 +1,4 @@
-import { useEffect } from "react";
 import { createBrowserRouter } from "react-router-dom";
-
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { Shipments } from "./components/Shipments";
@@ -11,15 +9,8 @@ import { News } from "./components/News";
 import { NewOrders } from "./components/NewOrders";
 import { OrderDetail } from "./components/OrderDetail";
 import { Reporting } from "./components/Reporting";
+import { QuarterlyDiscount } from "./components/QuarterlyDiscount";
 import { Analytics } from "./components/Analytics";
-
-function QuarterDiscountRedirect() {
-  useEffect(() => {
-    window.location.replace(`${import.meta.env.BASE_URL}quarter-discount/`);
-  }, []);
-
-  return null;
-}
 
 export const router = createBrowserRouter(
   [
@@ -29,7 +20,7 @@ export const router = createBrowserRouter(
       children: [
         { index: true, Component: Dashboard },
 
-        { path: "quarter-discount", Component: QuarterDiscountRedirect },
+        { path: "quarter-discount", Component: QuarterlyDiscount },
         { path: "new-orders", Component: NewOrders },
         { path: "new-orders/:orderId", Component: OrderDetail },
         { path: "shipments", Component: Shipments },
@@ -43,6 +34,6 @@ export const router = createBrowserRouter(
     },
   ],
   {
-    basename: "/my-figma-site/",
+    basename: "/my-figma-site",
   }
 );
