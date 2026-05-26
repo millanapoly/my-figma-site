@@ -34,6 +34,6 @@ export const router = createBrowserRouter(
     },
   ],
   {
-    basename: "/my-figma-site",
+    basename: "/my-figma-site/",
   }
 );
