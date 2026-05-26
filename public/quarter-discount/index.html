@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokuyama Dental · Личный кабинет</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: 'Inter', sans-serif; background: #F0F2F5; color: #111827; font-size: 13px; line-height: 1.5; }
+body { min-height: 100vh; }
+#root { min-height: 100vh; }
+button { font-family: inherit; cursor: pointer; }
+input, select { font-family: inherit; }
+::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+
+
+
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ─── TWEAK DEFAULTS ─────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "company": "ООО «МедДент Регион»",
+  "autoReporting": true,
+  "showConditions": true
+}/*EDITMODE-END*/;
+
+// ─── SCENARIO DATA ──────────────────────────────────────────────────────────
+const QUARTERS = {
+  forecast: { label: 'Q2 2026', period: 'апр–июн 2026', discountFor: 'Q3 2026', color: '#2563EB' },
+  settled: { label: 'Q1 2026 (начислено)', period: 'янв–мар 2026', discountFor: 'Q2 2026', color: '#0D9488' }
+};
+
+// SellIn data: plan/fact in шт (units), same as SellOut
+// SellOut data: plan/fact in шт (units)
+const SCENARIOS = [
+{
+  id: 'm1', label: 'М1 · старт', desc: 'Апрель, 2 недели работы', mode: 'forecast', month: 1,
+  sellout: {
+    months: [{ n: 'Апрель', plan: 400, fact: 112, pct: 28 }, { n: 'Май', plan: 500, fact: null, pct: null }, { n: 'Июнь', plan: 600, fact: null, pct: null }],
+    totalPlan: 1500, totalFact: 112, qpct: 7.5, earned: 0, max: 10
+  },
+  sellin: {
+    months: [{ n: 'Апрель', plan: 350, fact: 98, pct: 28 }, { n: 'Май', plan: 450, fact: null, pct: null }, { n: 'Июнь', plan: 500, fact: null, pct: null }],
+    totalPlan: 1300, totalFact: 98, qpct: 7.5, earned: 0, max: 3, riskZero: false
+  },
+  selloutLines: { quarterPlan: 1300, sold: { 'Астерия': 12, 'Флоу': 35, 'Балк Филл': 1 }, earned: 0, max: 3, quarterEnd: false, finalSet: false },
+  sellinLines: { fails: [], earned: 0, max: 3, quarterEnd: false },
+  reporting: { months: [{ m: 'Апрель', dl: '10.05.2026', sub: null, ok: null }, { m: 'Май', dl: '10.06.2026', sub: null, ok: null }, { m: 'Июнь', dl: '10.07.2026', sub: null, ok: null }], earned: 0, max: 1 },
+  channels: { ok: true, b2bPct: 8.2 },
+  partner: { score: null, avgScore: 270, prevQuarters: 4, selloutOk: false, linesOk: false },
+  alerts: [],
+  calcPct: 0, finalPct: null
+},
+{
+  id: 'm2g', label: 'М2 · хорошо', desc: 'Май, оба месяца в плюсе', mode: 'forecast', month: 2,
+  sellout: {
+    months: [{ n: 'Апрель', plan: 400, fact: 484, pct: 121 }, { n: 'Май', plan: 500, fact: 545, pct: 109 }, { n: 'Июнь', plan: 600, fact: null, pct: null }],
+    totalPlan: 1500, totalFact: 1029, qpct: 68.6, earned: 0, max: 10
+  },
+  sellin: {
+    months: [{ n: 'Апрель', plan: 350, fact: 452, pct: 129 }, { n: 'Май', plan: 450, fact: 504, pct: 112 }, { n: 'Июнь', plan: 500, fact: null, pct: null }],
+    totalPlan: 1300, totalFact: 956, qpct: 73.5, earned: 0, max: 3, riskZero: false
+  },
+  selloutLines: { quarterPlan: 1300, sold: { 'Астерия': 150, 'Флоу': 305, 'Балк Филл': 28 }, earned: 0, max: 3, quarterEnd: false, finalSet: false },
+  sellinLines: { fails: ['Эстелайт Астериа'], earned: 0, max: 3, quarterEnd: false },
+  reporting: { months: [{ m: 'Апрель', dl: '10.05.2026', sub: '08.05.2026', ok: true }, { m: 'Май', dl: '10.06.2026', sub: null, ok: null }, { m: 'Июнь', dl: '10.07.2026', sub: null, ok: null }], earned: 0, max: 1 },
+  channels: { ok: true, b2bPct: 9.1 },
+  partner: { score: null, avgScore: 270, prevQuarters: 4, selloutOk: false, linesOk: true },
+  alerts: [],
+  calcPct: 1, finalPct: null
+},
+{
+  id: 'm2b', label: 'М2 · риск', desc: 'Май, апрель провален', mode: 'forecast', month: 2,
+  sellout: {
+    months: [{ n: 'Апрель', plan: 400, fact: 244, pct: 61 }, { n: 'Май', plan: 500, fact: 310, pct: 62 }, { n: 'Июнь', plan: 600, fact: null, pct: null }],
+    totalPlan: 1500, totalFact: 554, qpct: 36.9, earned: 0, max: 10
+  },
+  sellin: {
+    months: [{ n: 'Апрель', plan: 350, fact: 231, pct: 66 }, { n: 'Май', plan: 450, fact: 342, pct: 76 }, { n: 'Июнь', plan: 500, fact: null, pct: null }],
+    totalPlan: 1300, totalFact: 573, qpct: 44.1, earned: 0, max: 3, riskZero: true, riskMsg: 'Апрель < 70% — если ещё 1 месяц < 70%, блок обнуляется!'
+  },
+  selloutLines: { quarterPlan: 1300, sold: { 'Астерия': 150, 'Флоу': 300, 'Балк Филл': 12 }, earned: 0, max: 3, quarterEnd: false, finalSet: false },
+  sellinLines: { fails: ['Эстелайт Астериа', 'Юниверсал Флоу', 'Эстелайт Постериор'], earned: 0, max: 3, quarterEnd: false },
+  reporting: { months: [{ m: 'Апрель', dl: '10.05.2026', sub: null, ok: false }, { m: 'Май', dl: '10.06.2026', sub: null, ok: null }, { m: 'Июнь', dl: '10.07.2026', sub: null, ok: null }], earned: 0, max: 1 },
+  channels: { ok: false, b2bPct: 45.8 },
+  partner: { score: null, avgScore: 270, prevQuarters: 4, selloutOk: false, linesOk: false },
+  alerts: [],
+
+  calcPct: 0, finalPct: null
+},
+{
+  id: 'm3g', label: 'М3 · финиш хорошо', desc: 'Июнь, идём к 100%', mode: 'forecast', month: 3,
+  sellout: {
+    months: [{ n: 'Апрель', plan: 400, fact: 484, pct: 121 }, { n: 'Май', plan: 500, fact: 545, pct: 109 }, { n: 'Июнь', plan: 600, fact: 452, pct: 75 }],
+    totalPlan: 1500, totalFact: 1481, qpct: 98.7, earned: 0, max: 10,
+    needFor100: '+19 шт → +6% скидки', needForMax: '+169 шт → +10% скидки'
+  },
+  sellin: {
+    months: [{ n: 'Апрель', plan: 350, fact: 452, pct: 129 }, { n: 'Май', plan: 450, fact: 504, pct: 112 }, { n: 'Июнь', plan: 500, fact: 424, pct: 85 }],
+    totalPlan: 1300, totalFact: 1380, qpct: 106.2, earned: 0, max: 3, riskZero: false
+  },
+  selloutLines: { quarterPlan: 1300, sold: { 'Астерия': 152, 'Флоу': 395, 'Балк Филл': 28 }, earned: 3, max: 3, quarterEnd: true, finalSet: false },
+  sellinLines: { fails: ['Эстелайт Астериа'], earned: 0, max: 3, quarterEnd: true },
+  reporting: { months: [{ m: 'Апрель', dl: '10.05.2026', sub: '08.05.2026', ok: true }, { m: 'Май', dl: '10.06.2026', sub: '06.06.2026', ok: true }, { m: 'Июнь', dl: '10.07.2026', sub: null, ok: null }], earned: 0, max: 1 },
+  channels: { ok: true, b2bPct: 10.1 },
+  partner: { score: null, avgScore: 270, prevQuarters: 4, selloutOk: false, linesOk: true },
+  alerts: [],
+  calcPct: 3, finalPct: null
+},
+{
+  id: 'm3b', label: 'М3 · финиш плохо', desc: 'Июнь, критическое отставание', mode: 'forecast', month: 3,
+  sellout: {
+    months: [{ n: 'Апрель', plan: 400, fact: 244, pct: 61 }, { n: 'Май', plan: 500, fact: 310, pct: 62 }, { n: 'Июнь', plan: 600, fact: 282, pct: 47 }],
+    totalPlan: 1500, totalFact: 836, qpct: 55.7, earned: 0, max: 10
+  },
+  sellin: {
+    months: [{ n: 'Апрель', plan: 350, fact: 231, pct: 66 }, { n: 'Май', plan: 450, fact: 342, pct: 76 }, { n: 'Июнь', plan: 500, fact: 288, pct: 58 }],
+    totalPlan: 1300, totalFact: 861, qpct: 66.2, earned: 0, max: 3, riskZero: true, riskMsg: 'Апрель и июнь < 70% — 2 из 3 месяцев. Блок обнуляется!'
+  },
+  selloutLines: { quarterPlan: 1300, sold: { 'Астерия': 80, 'Флоу': 200, 'Балк Филл': 8 }, earned: 0, max: 3, quarterEnd: true, finalSet: false },
+  sellinLines: { fails: ['Эстелайт Астериа', 'Юниверсал Флоу', 'Эстелайт Постериор', 'Балк Филл Флоу'], earned: 0, max: 3, quarterEnd: true },
+  reporting: { months: [{ m: 'Апрель', dl: '10.05.2026', sub: null, ok: false }, { m: 'Май', dl: '10.06.2026', sub: null, ok: false }, { m: 'Июнь', dl: '10.07.2026', sub: null, ok: null }], earned: 0, max: 1 },
+  channels: { ok: false, b2bPct: 44.2 },
+  partner: { score: null, avgScore: 270, prevQuarters: 4, selloutOk: false, linesOk: false },
+  alerts: [],
+
+  calcPct: 0, finalPct: null
+},
+{
+  id: 'done', label: 'Q завершён', desc: 'Q1 2026, данные начислены', mode: 'settled', month: null,
+  sellout: {
+    months: [{ n: 'Январь', plan: 300, fact: 365, pct: 121 }, { n: 'Февраль', plan: 500, fact: 548, pct: 110 }, { n: 'Март', plan: 700, fact: 637, pct: 91 }],
+    totalPlan: 1500, totalFact: 1550, qpct: 103.3, earned: 0, max: 10
+  },
+  sellin: {
+    months: [{ n: 'Январь', plan: 300, fact: 386, pct: 129 }, { n: 'Февраль', plan: 500, fact: 571, pct: 114 }, { n: 'Март', plan: 500, fact: 377, pct: 75 }],
+    totalPlan: 1300, totalFact: 1334, qpct: 102.6, earned: 2, max: 3, riskZero: false
+  },
+  selloutLines: { quarterPlan: 1300, sold: { 'Астерия': 152, 'Флоу': 360, 'Балк Филл': 28 }, earned: 0, max: 3, quarterEnd: true, finalSet: true,
+    data: [
+    { name: 'Эстелайт Астериа', min: 'мин. 11%', fact: '11.7%', ok: true },
+    { name: 'Юниверсал Флоу', min: 'мин. 30%', fact: '27.6%', ok: false },
+    { name: 'Балк Филл Флоу', min: 'мин. 2%', fact: '2.1%', ok: true }]
+
+  },
+  sellinLines: { fails: ['Эстелайт Астериа', 'Юниверсал Флоу', 'Эстелайт Постериор'], earned: 0, max: 3, quarterEnd: true,
+    data: [
+    { name: 'Эстелайт Астериа', min: 'мин. 11%', fact: '8.2%', ok: false },
+    { name: 'Юниверсал Флоу', min: 'мин. 30%', fact: '27.9%', ok: false },
+    { name: 'Балк Филл Флоу', min: 'мин. 2%', fact: '3.3%', ok: true },
+    { name: 'Эстелайт Постериор', min: 'мин. 3%', fact: '1.7%', ok: false },
+    { name: 'Бонд Форс', min: 'мин. 2.5%', fact: '10.2%', ok: true },
+    { name: 'Бонд Юниверсал II', min: '—', fact: '0.0%', ok: true }]
+
+  },
+  reporting: { months: [{ m: 'Январь', dl: '04.02.2026', sub: '31.01.2026', ok: true }, { m: 'Февраль', dl: '04.03.2026', sub: '29.02.2026', ok: true }, { m: 'Март', dl: '03.04.2026', sub: '31.03.2026', ok: true }], earned: 1, max: 1 },
+  channels: { ok: true, b2bPct: 10.6 },
+  partner: { score: 280, avgScore: 270, prevQuarters: 4, selloutOk: true, linesOk: true },
+  alerts: [],
+  calcPct: 3, finalPct: 8
+}];
+
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const fmt = (n) => n != null ? n.toLocaleString('ru') : '—';
+const pctColor = (p) => p >= 100 ? '#16A34A' : p >= 90 ? '#D97706' : '#DC2626';
+const pctBg = (p) => p >= 100 ? '#F0FDF4' : p >= 90 ? '#FFFBEB' : '#FEF2F2';
+
+function Bar({ pct, color = '#2563EB', h = 5, bg = '#E5E7EB' }) {
+  return (
+    <div style={{ background: bg, borderRadius: 99, height: h, overflow: 'hidden', minWidth: 60 }}>
+      <div style={{ height: '100%', width: `${clamp(pct, 0, 100)}%`, background: color, borderRadius: 99 }} />
+    </div>);
+
+}
+
+function Tag({ color, bg, children, style }) {
+  return <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, color, background: bg, ...style }}>{children}</span>;
+}
+
+function RiskBanner({ alerts }) {
+  if (!alerts?.length) return null;
+  const lvlStyle = { danger: ['#FEF2F2', '#991B1B', '#DC2626'], warn: ['#FFFBEB', '#92400E', '#D97706'], info: ['#EFF6FF', '#1E40AF', '#2563EB'] };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+      {alerts.map((a, i) => {
+        const [bg, tc, bc] = lvlStyle[a.level] || lvlStyle.info;
+        return (
+          <div key={i} style={{ padding: '8px 14px', borderRadius: 8, background: bg, border: `1px solid ${bc}20`, fontSize: 12, color: tc, lineHeight: 1.5 }}>{a.text}</div>);
+
+      })}
+    </div>);
+
+}
+
+// ─── SCENARIO SWITCHER ───────────────────────────────────────────────────────
+function ScenarioBar({ active, onChange }) {
+  return (
+    <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto' }}>
+      <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em', flexShrink: 0 }}>Сценарии:</span>
+      {SCENARIOS.map((s) =>
+      <button key={s.id} onClick={() => onChange(s.id)} style={{
+        flexShrink: 0, padding: '5px 12px', borderRadius: 6, border: `1px solid ${active === s.id ? '#2563EB' : '#E5E7EB'}`,
+        background: active === s.id ? '#EFF6FF' : '#fff', color: active === s.id ? '#1D4ED8' : '#374151',
+        fontWeight: active === s.id ? 700 : 400, fontSize: 12, whiteSpace: 'nowrap'
+      }}>
+          {s.label}
+          <span style={{ display: 'block', fontSize: 10, color: active === s.id ? '#60A5FA' : '#9CA3AF', fontWeight: 400 }}>{s.desc}</span>
+        </button>
+      )}
+    </div>);
+
+}
+
+// ─── TOP BAR ─────────────────────────────────────────────────────────────────
+function TopBar({ sc, company, mode, onModeChange }) {
+  const q = QUARTERS[mode];
+  const now = new Date();
+  const updated = `${now.toLocaleDateString('ru')} ${now.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}`;
+  return (
+    <div style={{ background: '#0D2B4E', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 16, height: 52 }}>
+      {/* logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 8 }}>
+        <div style={{ width: 28, height: 28, borderRadius: 7, background: '#1A3F6F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect width="14" height="14" rx="3" fill="#1A3F6F" /><path d="M3 11l3-6 3 6M4.5 8.5h4" stroke="#86EFAC" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        </div>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, lineHeight: 1 }}>Tokuyama Dental</div>
+          <div style={{ color: 'rgba(255,255,255,.45)', fontSize: 10 }}>Личный кабинет</div>
+        </div>
+      </div>
+      <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,.12)' }} />
+      <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 12 }}>{company}</div>
+      <div style={{ flex: 1 }} />
+      {/* mode toggle */}
+      <div style={{ display: 'flex', background: 'rgba(255,255,255,.08)', borderRadius: 8, padding: 3, gap: 2 }}>
+        {['forecast', 'settled'].map((m) =>
+        <button key={m} onClick={() => onModeChange(m)} style={{
+          padding: '4px 14px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600,
+          background: mode === m ? '#fff' : 'transparent',
+          color: mode === m ? '#0D2B4E' : 'rgba(255,255,255,.55)'
+        }}>
+            {m === 'forecast' ? '📊 Прогноз' : '✅ Начислено'}
+          </button>
+        )}
+      </div>
+      <div style={{ color: 'rgba(255,255,255,.35)', fontSize: 11 }}>
+        Обновлено: {updated}
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,.25)' }}>Данные за {q.period}</div>
+      </div>
+    </div>);
+
+}
+
+// ─── SUMMARY STRIP ───────────────────────────────────────────────────────────
+function SummaryStrip({ sc, mode, isPartner, autoReporting }) {
+  const q = QUARTERS[mode];
+  const calc = computeDiscount(sc, isPartner, autoReporting);
+  const final = sc.finalPct;
+  const maxAvailable = computeMaxAvailable(sc, autoReporting);
+  const missed = Math.max(maxAvailable - calc, 0);
+  const label = mode === 'forecast' ? 'Прогнозная скидка' : 'Расчётная скидка';
+
+  return (
+    <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap' }}>
+      {/* period */}
+      <div>
+        <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>Период</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{q.label}</div>
+        <div style={{ fontSize: 11, color: '#6B7280' }}>Скидка будет действовать в: <strong>{q.discountFor}</strong></div>
+      </div>
+      <div style={{ width: 1, height: 36, background: '#E5E7EB' }} />
+
+      <div>
+        <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: 28, fontWeight: 800, color: q.color }}>{calc}%</span>
+          <span style={{ fontSize: 11, color: '#9CA3AF' }}>из {maxAvailable}%</span>
+        </div>
+      </div>
+
+      {final !== null &&
+      <>
+          <div style={{ width: 1, height: 36, background: '#E5E7EB' }} />
+          <div>
+            <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>Итоговая скидка</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 28, fontWeight: 800, color: '#0D9488' }}>{final}%</span>
+              <span style={{ fontSize: 11, color: '#6B7280' }}>(установлена: 02.07.2026)</span>
+            </div>
+          </div>
+        </>
+      }
+
+      {mode === 'forecast' &&
+      <>
+        <div style={{ width: 1, height: 36, background: '#E5E7EB' }} />
+        <div>
+          <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>Потенциал</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span style={{ fontSize: 28, fontWeight: 800, color: '#DC2626' }}>{missed}%</span>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>из {maxAvailable}% максимальных</span>
+          </div>
+        </div>
+      </>
+      }
+    </div>);
+
+}
+
+// ─── BLOCK 1: СТАТУС// ─── BLOCK 1: СТАТУС ПАРТНЁР/ДИСТРИБЬЮТОР per PRD v2 ──────────────────────────
+
+// Сворачиваемая подкарточка с заголовком, статусом и содержимым
+function CollapsibleSubBlock({ num, title, statusText, tone, children }) {
+  const [open, setOpen] = useState(false);
+  const pal = badgePalette(tone);
+  return (
+    <div style={{ borderRadius: 10, background: pal.bg, border: `1px solid ${pal.border}`, marginBottom: 8, overflow: 'hidden' }}>
+      <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', cursor: 'pointer', userSelect: 'none', gap: 10 }}>
+        <div style={{ width: 20, height: 20, borderRadius: 5, background: 'white', color: pal.color, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${pal.border}` }}>{num}</div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: '#111827' }}>{title}</div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: pal.color, padding: '3px 10px', borderRadius: 99, background: 'white', border: `1px solid ${pal.border}`, whiteSpace: 'nowrap' }}>
+          {statusText}
+        </span>
+        <svg width="16" height="16" fill="none" stroke="#9CA3AF" strokeWidth="2" viewBox="0 0 24 24">
+          <path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      {open &&
+      <div style={{ padding: '12px 14px 16px', borderTop: `1px solid ${pal.border}` }}>
+          {children}
+        </div>
+      }
+    </div>);
+
+}
+
+// Body: шкала листа оценки
+function ScoreScaleBody({ score, avgScore, prevQuarters, markerPct }) {
+  return (
+    <div style={{ position: 'relative', padding: '10px 12px 28px' }}>
+      <div style={{ position: 'absolute', left: `calc(${markerPct}% + 12px)`, top: 0, transform: 'translateX(-50%)', fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap', zIndex: 2 }}>
+        {score === null ?
+        <>Средняя оценка за предыдущие {prevQuarters} кварталов — <b style={{ color: '#111827' }}>{avgScore}</b></> :
+        <>Оценка квартала — <b style={{ color: '#111827' }}>{score}</b></>
+        }
+      </div>
+      <div style={{ position: 'relative', height: 56, marginTop: 28 }}>
+        <div style={{ position: 'absolute', left: '0%', top: 38, fontSize: 11, color: '#6B7280' }}>дистрибьютор</div>
+        <div style={{ position: 'absolute', left: '74.6%', top: 38, fontSize: 11, color: '#6B7280' }}>партнёр</div>
+        <div style={{ position: 'absolute', top: 12, left: 0, right: 0, height: 2, background: '#F97316', borderRadius: 99 }} />
+        {[{ pct: 0, label: '0' }, { pct: 250 / 355 * 100, label: '250' }, { pct: 100, label: '355' }].map((t, i) =>
+        <div key={i} style={{ position: 'absolute', left: `${t.pct}%`, top: 6, transform: 'translateX(-50%)' }}>
+            <div style={{ width: 1.5, height: 14, background: '#F97316' }} />
+            <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4, fontWeight: 600, textAlign: 'center' }}>{t.label}</div>
+          </div>
+        )}
+        <div style={{ position: 'absolute', left: `${markerPct}%`, top: 6, transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: 'white', border: '2px solid #F97316', boxShadow: '0 1px 2px rgba(0,0,0,.1)', zIndex: 1 }} />
+      </div>
+    </div>);
+
+}
+
+// Body: прогресс-бар Sell-Out
+function SellOutScaleBody({ plan, fact, pct, barColor, recommendation }) {
+  const factPct = Math.min(fact / plan * 100, 110);
+  const need90 = Math.round(plan * 0.9);
+  return (
+    <div>
+      <div style={{ position: 'relative', height: 18, marginBottom: 6 }}>
+        <span style={{ position: 'absolute', left: `${Math.max(factPct, 12)}%`, top: 0, transform: 'translateX(-50%)', fontSize: 12, color: barColor, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {fact.toLocaleString('ru')} шт ({pct.toFixed(1).replace('.', ',')}%)
+        </span>
+        <span style={{ position: 'absolute', left: '90%', top: 0, transform: 'translateX(-50%)', fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>
+          {need90.toLocaleString('ru')} шт (90%)
+        </span>
+      </div>
+      <div style={{ position: 'relative', height: 14, marginBottom: 8 }}>
+        <div style={{ position: 'absolute', top: 3, left: 0, right: 0, height: 8, background: '#E5E7EB', borderRadius: 99 }} />
+        <div style={{ position: 'absolute', top: 3, left: 0, height: 8, width: `${factPct}%`, background: barColor, borderRadius: 99, transition: 'width .6s ease' }} />
+        <div style={{ position: 'absolute', top: 0, left: '90%', transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#374151', border: '2px solid white', boxShadow: '0 1px 2px rgba(0,0,0,.15)' }} />
+      </div>
+      {recommendation &&
+      <div style={{ marginTop: 12, fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{recommendation}</div>
+      }
+    </div>);
+
+}
+
+// Body: линейки Sell-Out (несколько баров)
+function SellOutLinesBody({ rows, recommendation }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {rows.map((r, i) => {
+          const factPct = Math.min(r.fact / r.planLine * 100, 110);
+          const barColor = r.ok90 ? '#16A34A' : '#DC2626';
+          const shortPct = r.ok90 ? 0 : Math.round((r.target90 - r.fact) / r.target90 * 100);
+          return (
+            <div key={i}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 8 }}>{r.name}</div>
+              <div style={{ position: 'relative', height: 18, marginBottom: 6 }}>
+                <span style={{ position: 'absolute', left: `${Math.max(factPct, 12)}%`, top: 0, transform: 'translateX(-50%)', fontSize: 12, color: barColor, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {r.fact.toLocaleString('ru')} шт ({Math.round(r.pctOfPlan)}%)
+                </span>
+                <span style={{ position: 'absolute', left: '90%', top: 0, transform: 'translateX(-50%)', fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>
+                  {r.target90.toLocaleString('ru')} шт (90%)
+                </span>
+              </div>
+              <div style={{ position: 'relative', height: 14, marginBottom: 6 }}>
+                <div style={{ position: 'absolute', top: 3, left: 0, right: 0, height: 8, background: '#E5E7EB', borderRadius: 99 }} />
+                <div style={{ position: 'absolute', top: 3, left: 0, height: 8, width: `${factPct}%`, background: barColor, borderRadius: 99 }} />
+                <div style={{ position: 'absolute', top: 0, left: '90%', transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#374151', border: '2px solid white', boxShadow: '0 1px 2px rgba(0,0,0,.15)' }} />
+              </div>
+              <div style={{ fontSize: 11, color: r.ok90 ? '#15803D' : '#DC2626', lineHeight: 1.5 }}>
+                {r.ok90 ? 'Линейка выполнена' : `Не хватает ${shortPct}% до минимального порога • Осталось продать ${r.left.toLocaleString('ru')} шт`}
+              </div>
+            </div>);
+
+        })}
+      </div>
+      {recommendation &&
+      <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <span style={{ fontSize: 16, flexShrink: 0 }}>⭐</span>
+          <span style={{ fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{recommendation}</span>
+        </div>
+      }
+    </div>);
+
+}
+
+// Body: 4 счётчика CISLink
+function CISLinkBody({ onTime, total, deviations, waiting, cislinkStatus }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      <div style={{ padding: '12px 14px', borderRadius: 8, background: 'white', border: '1px solid #BBF7D0' }}>
+        <div style={{ fontSize: 11, color: '#15803D', fontWeight: 700, marginBottom: 4 }}>Вовремя</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: '#15803D', lineHeight: 1.1 }}>{onTime}</div>
+        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>из {total}</div>
+      </div>
+      <div style={{ padding: '12px 14px', borderRadius: 8, background: 'white', border: '1px solid #E5E7EB' }}>
+        <div style={{ fontSize: 11, color: deviations > 0 ? '#DC2626' : '#6B7280', fontWeight: 700, marginBottom: 4 }}>Отклонений</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: deviations > 0 ? '#DC2626' : '#111827', lineHeight: 1.1 }}>{deviations}</div>
+        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>лимит: 2</div>
+      </div>
+      <div style={{ padding: '12px 14px', borderRadius: 8, background: 'white', border: '1px solid #E5E7EB' }}>
+        <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, marginBottom: 4 }}>Ожидается</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: '#374151', lineHeight: 1.1 }}>{waiting}</div>
+        <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>отчётов</div>
+      </div>
+      <div style={{ padding: '12px 14px', borderRadius: 8, background: 'white', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 700, marginBottom: 4 }}>Статус CISLink</div>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '6px 12px', borderRadius: 99, fontSize: 13, fontWeight: 700,
+          background: cislinkStatus === 'Подключён' ? '#DCFCE7' : cislinkStatus === 'Не подключён' ? '#FEE2E2' : '#FEF3C7',
+          color: cislinkStatus === 'Подключён' ? '#15803D' : cislinkStatus === 'Не подключён' ? '#991B1B' : '#92400E',
+          alignSelf: 'flex-start'
+        }}>
+          {cislinkStatus === 'Подключён' ? '●' : cislinkStatus === 'Не подключён' ? '○' : '⚠'} {cislinkStatus}
+        </span>
+      </div>
+    </div>);
+
+}
+
+// ─── PARTNER BLOCK ───────────────────────────────────────────────────────────
+function PartnerBlock({ sc, autoReporting }) {
+  const [open, setOpen] = useState(false);
+  const { score, avgScore = 270, prevQuarters = 4, selloutOk, linesOk } = sc.partner;
+  const scoreOk = score !== null && score >= 250;
+  const allOk = scoreOk && selloutOk && linesOk && autoReporting;
+  const isPartner = allOk;
+  const isSettled = sc.mode === 'settled';
+
+  // ── Лист оценки: статус + рекомендация по таблице ──
+  let scoreStatus, scoreTone, scoreRec, scoreBadge;
+  if (score === null) {
+    scoreStatus = 'ожидается';
+    scoreTone = 'gray';
+    scoreRec = null;
+    scoreBadge = { icon: '⏱', text: 'Оценка квартала ожидается', tone: 'gray' };
+  } else if (scoreOk) {
+    scoreStatus = 'выполнен';
+    scoreTone = 'green';
+    scoreRec = `Оценка квартала — ${score} баллов`;
+    scoreBadge = { icon: '✓', text: 'Оценка квартала утверждена', tone: 'green' };
+  } else {
+    scoreStatus = 'не выполнен';
+    scoreTone = 'red';
+    scoreRec = `Оценка квартала — ${score} баллов`;
+    scoreBadge = { icon: '✕', text: 'Оценка квартала ниже 250', tone: 'red' };
+  }
+  const markerScore = score !== null ? score : avgScore;
+  const markerPct = Math.min(markerScore / 355 * 100, 100);
+
+  // 3 остальных подблока
+  // ── Подблок 2: Выполнение плана сбыта (Sell-Out) ──
+  const soFact = sc.sellout.totalFact;
+  const soPlan = sc.sellout.totalPlan;
+  const soPct = sc.sellout.qpct;
+  const soNeed90 = Math.max(Math.round(soPlan * 0.9) - soFact, 0);
+  let soStatus, soTone, soRec;
+  if (soPct >= 90) {
+    soStatus = 'выполнен';soTone = 'green';soRec = null;
+  } else if (isSettled) {
+    soStatus = 'не выполнен';soTone = 'red';soRec = null;
+  } else {
+    soStatus = 'в процессе';soTone = 'yellow';
+    soRec = `⭐ Осталось продать ${soNeed90.toLocaleString('ru')} шт до 90% плана`;
+  }
+
+  // ── Подблок 3: Соотношение линеек сбыта (Sell-Out) ──
+  const quarterPlanSO = sc.selloutLines.quarterPlan || 1300;
+  const soldMap = sc.selloutLines.sold || {};
+  const linesRows = [
+  { name: 'Эстелайт Астериа', limit: 0.11 },
+  { name: 'Юниверсал Флоу', limit: 0.30 },
+  { name: 'Балк Филл Флоу', limit: 0.02 }].
+  map((l) => {
+    const planLine = Math.ceil(quarterPlanSO * l.limit);
+    const target90 = Math.ceil(planLine * 0.9);
+    // try several keys: 'Астерия','Флоу','Балк Филл'
+    const shortKey = l.name === 'Эстелайт Астериа' ? 'Астерия' :
+    l.name === 'Юниверсал Флоу' ? 'Флоу' :
+    'Балк Филл';
+    const fact = soldMap[shortKey] || 0;
+    const pctOfPlan = fact / planLine * 100;
+    const pctOfTarget90 = fact / target90 * 100;
+    const ok90 = fact >= target90;
+    return { name: l.name, planLine, target90, fact, pctOfPlan, pctOfTarget90, ok90, left: Math.max(target90 - fact, 0) };
+  });
+  const failedLines = linesRows.filter((r) => !r.ok90);
+  const allLinesOk = failedLines.length === 0;
+  let linesStatus, linesTone, linesRecText;
+  if (allLinesOk) {
+    linesStatus = 'выполнен';linesTone = 'green';linesRecText = null;
+  } else if (isSettled) {
+    linesStatus = 'не выполнен';linesTone = 'red';
+    linesRecText = null;
+  } else {
+    linesStatus = 'в процессе';linesTone = 'yellow';
+    const parts = failedLines.map((r) => `${r.name} — ${r.left.toLocaleString('ru')} шт`);
+    linesRecText = `Необходимо продать: ${parts.join(', ')} до конца квартала`;
+  }
+
+  // ── Подблок 4: Автоматическая отчётность CISLink ──
+  // Mock: считаем сданные/отклонения/ожидаемые из reporting.months
+  const onTimeCount = sc.reporting.months.filter((m) => m.ok === true).length;
+  const deviationCount = sc.reporting.months.filter((m) => m.ok === false).length;
+  const waitingCount = sc.reporting.months.filter((m) => m.ok === null).length;
+  // pad to 12 total (mock previous quarters)
+  const totalReports = 12;
+  const onTimeTotal = onTimeCount + (autoReporting ? 0 : 0); // фактические данные текущего квартала
+  const waitingTotal = totalReports - onTimeTotal - deviationCount;
+  const cislinkOnline = autoReporting;
+  const cislinkStatus = !cislinkOnline ? 'Не подключён' : deviationCount > 2 ? 'Отклонение' : 'Подключён';
+  const cislinkOk = cislinkOnline && deviationCount <= 2;
+  const cislinkSubStatus = cislinkOk ? 'в порядке' : 'отклонение';
+  const cislinkTone = cislinkOk ? 'green' : 'red';
+
+  const otherSubs = [];
+
+  const allSubs = [
+  { title: 'Лист оценки', status: scoreStatus, tone: scoreTone, recommendation: scoreRec },
+  { title: 'Выполнение плана сбыта', status: soStatus, tone: soTone, recommendation: soRec },
+  ...otherSubs];
+
+
+  // Recommendation for collapsed view
+  const issues = allSubs.filter((s) => s.tone !== 'green').length;
+  const recForCollapsed = isPartner ?
+  '✅ Статус «Партнёр» подтверждён — повышенные ставки во всех блоках' :
+  `Условий до статуса «Партнёр»: ${issues} из 4. Доступны базовые ставки`;
+
+  // Палитра для шкалы
+  const bdgPal = badgePalette(scoreBadge.tone);
+  const scorePal = badgePalette(scoreTone);
+
+  return (
+    <BlockRow num="1" title={isPartner ? 'Статус: Партнёр' : 'Статус: Дистрибьютор'}
+    recommendation={recForCollapsed}
+    statusText={isPartner ? 'Партнёр' : 'Дистрибьютор'}
+    statusTone={isPartner ? 'green' : 'gray'}
+    badge="Множитель скидок" badgeTone={isPartner ? 'green' : 'gray'}>
+
+      {/* 1. Лист оценки */}
+      <CollapsibleSubBlock num="1" title="Лист оценки" statusText={scoreStatus} tone={scoreTone}>
+        <ScoreScaleBody score={score} avgScore={avgScore} prevQuarters={prevQuarters} markerPct={markerPct} scoreTone={scoreTone} />
+      </CollapsibleSubBlock>
+
+      {/* 2. Выполнение плана сбыта */}
+      <CollapsibleSubBlock num="2" title="Выполнение плана сбыта (Sell-Out)" statusText={soStatus} tone={soTone}>
+        <SellOutScaleBody plan={soPlan} fact={soFact} pct={soPct} barColor={soPct >= 90 ? '#16A34A' : '#DC2626'} recommendation={soRec} />
+      </CollapsibleSubBlock>
+
+      {/* 3. Соотношение линеек сбыта */}
+      <CollapsibleSubBlock num="3" title="Соотношение линеек сбыта (Sell-Out)" statusText={linesStatus} tone={linesTone}>
+        <SellOutLinesBody rows={linesRows} recommendation={linesRecText} />
+      </CollapsibleSubBlock>
+
+      {/* 4. Автоматическая отчётность CISLink */}
+      <CollapsibleSubBlock num="4" title="Автоматическая отчётность CISLink" statusText={cislinkSubStatus} tone={cislinkTone}>
+        <CISLinkBody onTime={onTimeTotal} total={totalReports} deviations={deviationCount} waiting={waitingTotal} cislinkStatus={cislinkStatus} />
+      </CollapsibleSubBlock>
+    </BlockRow>);
+
+}
+
+// ─── CHEVRON ─────────────────────────────────────────────────────────────────
+function Chevron({ open }) {
+  return (
+    <svg width="16" height="16" fill="none" stroke="#9CA3AF" strokeWidth="2" viewBox="0 0 24 24">
+      <path d={open ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>);
+
+}
+
+// ─── BADGE HELPER ────────────────────────────────────────────────────────────
+function fmtBadge(stage, earned, max) {
+  // stage: 'forecast' | 'calc' | 'final' | 'info'
+  if (stage === 'info') return null;
+  const prefix = stage === 'forecast' ? 'Прогноз' : stage === 'calc' ? 'Расчётно' : 'Начислено';
+  return `${prefix} ${earned}% из ${max}%`;
+}
+function badgePalette(tone) {
+  // tone: 'yellow' | 'green' | 'red' | 'gray' | 'info'
+  switch (tone) {
+    case 'green':return { bg: '#DCFCE7', color: '#15803D', border: '#86EFAC' };
+    case 'yellow':return { bg: '#FEF9C3', color: '#92400E', border: '#FDE68A' };
+    case 'red':return { bg: '#FEE2E2', color: '#991B1B', border: '#FCA5A5' };
+    case 'info':return { bg: '#DBEAFE', color: '#1E40AF', border: '#93C5FD' };
+    default:return { bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' };
+  }
+}
+
+function computeSellOutLinesEarned(sc) {
+  const { quarterPlan = 1300, sold = {}, max = 3, finalSet } = sc.selloutLines;
+  const rows = SO_LINES.map((l) => {
+    const plan = Math.ceil(quarterPlan * l.limit);
+    const fact = sold[l.name] || 0;
+    return { ok: fact >= plan };
+  });
+  return rows.every((r) => r.ok) ? max : 0;
+}
+
+function computeSellInLinesEarned(sc, isPartner = false) {
+  const maxEarned = isPartner ? 2 : 1;
+  const quarterPlan = 1300;
+  const data = SI_LINE_DATA[sc.id] || SI_LINE_DATA.m1;
+  const rows = SI_LINES.map((l) => {
+    const target = quarterPlan * (l.limit / 100);
+    const target90 = Math.ceil(target * 0.9);
+    const bought = data[l.name] || 0;
+    return { okMin: bought >= target90 };
+  });
+  const sellInOk = sc.sellin.qpct >= 90;
+  const allMin = rows.every((r) => r.okMin);
+  return sellInOk && allMin ? maxEarned : 0;
+}
+
+function computeReportingEarned(sc, autoReporting) {
+  const { months, max = 1 } = sc.reporting;
+  const deviationsAll = months.filter((m) => m.ok === false).length;
+  const overLimit = deviationsAll > 2;
+  return autoReporting && !overLimit ? max : 0;
+}
+
+function computeMaxAvailable(sc, autoReporting) {
+  let max = 20;
+  const so = sellOutCompute(sc, true);
+  const si = sellInCompute(sc, true);
+  const reportingDeviations = sc.reporting.months.filter((m) => m.ok === false).length;
+  if (so.zeroed2 || (sc.mode === 'settled' && sc.sellout.qpct < 90)) max -= 10;
+  if (si.zeroed || (sc.mode === 'settled' && sc.sellin.qpct < 90)) max -= 4;
+  if (reportingDeviations > 2) max -= 1;
+  return Math.max(max, 0);
+}
+
+function computeDiscount(sc, isPartner, autoReporting) {
+  return sellOutCompute(sc, isPartner).earned +
+    sellInCompute(sc, isPartner).earned +
+    computeSellInLinesEarned(sc, isPartner) +
+    computeSellOutLinesEarned(sc) +
+    computeReportingEarned(sc, autoReporting);
+}
+
+// ─── BLOCK COMPUTATION HELPERS// ─── BLOCK COMPUTATION HELPERS (per PRD v2) ──────────────────────────────────
+function bigStage(sc) {return sc.mode === 'settled' ? sc.finalSet === false ? 'calc' : 'final' : 'forecast';}
+
+function statusForMonthBlock(sc, qpct, monthsArr, max) {
+  // Determines statusText + statusTone + badge + badgeTone for SellOut/SellIn blocks
+  const month = sc.month;
+  const stage = sc.mode === 'settled' ? 'final' : 'forecast';
+  const curM = month ? monthsArr[month - 1] : null;
+  // Completed months prior to current (or all for settled)
+  const allCompleted = monthsArr.filter((m) => m.fact != null);
+  // Status text: for Sell-Out and Sell-In always show quarterly progress, not monthly progress
+  const statusText = `квартал выполнение ${qpct}%`;
+  return { statusText, allCompleted, stage };
+}
+
+function sellOutCompute(sc, isPartner = false) {
+  const { months, totalPlan, totalFact, qpct, max = 10 } = sc.sellout;
+  const month = sc.month;
+  const { statusText, allCompleted, stage } = statusForMonthBlock(sc, qpct, months, max);
+  const below100 = allCompleted.filter((m) => m.pct < 100);
+  const zeroed2 = below100.length >= 2 && (sc.mode === 'settled' || month === 3);
+  let earned = 0,badgeStage = stage,badgeTone = 'yellow',statusTone = 'yellow';
+
+  if (zeroed2) {
+    earned = 0;badgeTone = 'red';statusTone = 'red';badgeStage = 'final';
+  } else if (month === null || sc.mode === 'settled') {
+    if (qpct < 90) {earned = 0;badgeTone = 'red';statusTone = 'red';} else
+    if (qpct < 100) {earned = isPartner ? 3 : 0;badgeTone = 'green';statusTone = 'green';} else
+    if (qpct < 110) {earned = isPartner ? 7 : 6;badgeTone = 'green';statusTone = 'green';} else
+    {earned = isPartner ? 10 : 8;badgeTone = 'green';statusTone = 'green';}
+    badgeStage = sc.mode === 'settled' ? sc.finalSet === false ? 'calc' : 'final' : 'forecast';
+  } else if (month === 3) {
+    if (qpct < 90) {earned = 0;badgeTone = 'yellow';statusTone = 'yellow';} else
+    if (qpct < 100) {earned = isPartner ? 3 : 0;badgeTone = 'yellow';statusTone = 'yellow';} else
+    if (qpct < 110) {earned = isPartner ? 7 : 6;badgeTone = 'green';statusTone = 'green';} else
+    {earned = isPartner ? 10 : 8;badgeTone = 'green';statusTone = 'green';}
+  } else {
+    const curOk = months[month - 1]?.pct >= 100;
+    statusTone = curOk ? 'green' : 'yellow';
+    badgeTone = curOk ? 'green' : 'yellow';
+  }
+  const badge = fmtBadge(badgeStage, earned, max);
+  return { statusText, statusTone, badge, badgeTone, earned, zeroed2 };
+}
+
+function sellInCompute(sc, isPartner = false) {
+  const { months, totalPlan, totalFact, qpct, max = 4 } = sc.sellin;
+  const month = sc.month;
+  const { statusText, allCompleted, stage } = statusForMonthBlock(sc, qpct, months, max);
+  const below70 = allCompleted.filter((m) => m.pct < 70);
+  const below100 = allCompleted.filter((m) => m.pct < 100);
+  const zeroed70 = (month >= 2 || sc.mode === 'settled') && below70.length >= 1;
+  const zeroed100 = (month === 3 || sc.mode === 'settled') && below100.length >= 2;
+  const zeroed = zeroed70 || zeroed100;
+  let earned = 0,badgeStage = stage,badgeTone = 'yellow',statusTone = 'yellow';
+
+  if (zeroed) {
+    earned = 0;badgeTone = 'red';statusTone = 'red';badgeStage = 'final';
+  } else if (month === null || sc.mode === 'settled') {
+    if (qpct < 90) {earned = 0;badgeTone = 'red';statusTone = 'red';} else
+    if (qpct < 100) {earned = isPartner ? 2 : 0;badgeTone = 'green';statusTone = 'green';} else
+    if (qpct < 110) {earned = isPartner ? 3 : 2;badgeTone = 'green';statusTone = 'green';} else
+    {earned = isPartner ? 4 : 3;badgeTone = 'green';statusTone = 'green';}
+    badgeStage = sc.mode === 'settled' ? sc.finalSet === false ? 'calc' : 'final' : 'forecast';
+  } else if (month === 3) {
+    if (qpct < 90) {earned = 0;badgeTone = 'yellow';statusTone = 'yellow';} else
+    if (qpct < 100) {earned = isPartner ? 2 : 0;badgeTone = 'yellow';statusTone = 'yellow';} else
+    if (qpct < 110) {earned = isPartner ? 3 : 2;badgeTone = 'yellow';statusTone = 'yellow';} else
+    {earned = isPartner ? 4 : 3;badgeTone = 'green';statusTone = 'green';}
+  } else {
+    const curOk = months[month - 1]?.pct >= 100;
+    const curBelow70 = months[month - 1] && months[month - 1].pct < 70 && months[month - 1].fact != null;
+    const forceYellowM1 = sc.id === 'm1';
+    statusTone = curOk ? 'green' : curBelow70 && !forceYellowM1 ? 'red' : 'yellow';
+    badgeTone = statusTone;
+  }
+  const badge = fmtBadge(badgeStage, earned, max === 3 ? 4 : max);
+  return { statusText, statusTone, badge, badgeTone, earned, zeroed };
+}
+
+// ─── BLOCK ROW// ─── BLOCK ROW ──────────────────────────────────────────────────────────────
+function BlockRow({ num, title, subtitle, recommendation, statusText, statusTone = 'gray', badge, badgeTone = 'gray', children }) {
+  const [open, setOpen] = useState(false);
+  const stPal = badgePalette(statusTone);
+  const bdPal = badgePalette(badgeTone);
+  // Left border accent by overall tone
+  const borderColor = badgeTone === 'green' ? '#86EFAC' :
+  badgeTone === 'red' ? '#FCA5A5' :
+  badgeTone === 'yellow' ? '#FDE68A' :
+  badgeTone === 'info' ? '#BFDBFE' :
+  '#E5E7EB';
+  return (
+    <div style={{ background: '#fff', borderRadius: 10, marginBottom: 6, overflow: 'hidden', border: '1px solid #E5E7EB', borderLeft: `3px solid ${borderColor}` }}>
+      <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', cursor: 'pointer', userSelect: 'none', gap: 12 }}>
+        {/* num */}
+        <div style={{ width: 24, height: 24, borderRadius: 6, background: stPal.bg, color: stPal.color, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{num}</div>
+        {/* title + recommendation */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{title}</span>
+            {statusText &&
+            <span style={{ fontSize: 11, fontWeight: 600, color: stPal.color, padding: '2px 8px', borderRadius: 99, background: stPal.bg, whiteSpace: 'nowrap' }}>
+                {statusText}
+              </span>
+            }
+          </div>
+          {recommendation &&
+          <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {recommendation}
+            </div>
+          }
+          {!recommendation && subtitle &&
+          <div style={{ fontSize: 12, color: '#9CA3AF' }}>{subtitle}</div>
+          }
+        </div>
+        {/* badge */}
+        {badge &&
+        <div style={{
+          fontSize: 12, fontWeight: 700, color: bdPal.color, background: bdPal.bg, border: `1px solid ${bdPal.border}`,
+          padding: '5px 12px', borderRadius: 8, whiteSpace: 'nowrap', flexShrink: 0
+        }}>
+            {badge}
+          </div>
+        }
+        <Chevron open={open} />
+      </div>
+      {open &&
+      <div style={{ padding: '0 16px 16px', borderTop: '1px solid #F3F4F6' }}>
+          <div style={{ marginTop: 14 }}>{children}</div>
+        </div>
+      }
+    </div>);
+
+}
+
+// ─── MONTHLY TABLE SELLOUT (шт) ──────────────────────────────────────────────
+function SellOutTable({ months, totalPlan, totalFact, qpct }) {
+  const rows = [...months, { n: 'Итого', plan: totalPlan, fact: totalFact, pct: qpct, isTotal: true }];
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <thead>
+        <tr style={{ color: '#9CA3AF', borderBottom: '1px solid #F3F4F6' }}>
+          <th style={{ textAlign: 'left', padding: '4px 0 6px', fontWeight: 600 }}>Месяц</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px 6px', fontWeight: 600 }}>План, шт</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px 6px', fontWeight: 600 }}>Факт, шт</th>
+          <th style={{ textAlign: 'right', padding: '4px 0 6px', fontWeight: 600 }}>%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((m, i) =>
+        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB', fontWeight: m.isTotal ? 700 : 400, background: m.isTotal ? '#F9FAFB' : 'transparent' }}>
+            <td style={{ padding: '6px 0', color: '#374151' }}>{m.n}</td>
+            <td style={{ textAlign: 'right', padding: '6px 8px', color: '#6B7280' }}>{fmt(m.plan)}</td>
+            <td style={{ textAlign: 'right', padding: '6px 8px', color: m.fact == null ? '#D1D5DB' : '#111827', fontWeight: m.fact != null ? 600 : 400 }}>{m.fact != null ? fmt(m.fact) : '—'}</td>
+            <td style={{ textAlign: 'right', padding: '6px 0', fontWeight: 700, color: m.fact != null ? pctColor(m.pct) : '#D1D5DB' }}>{m.fact != null ? `${m.pct}%` : '—'}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>);
+
+}
+
+// ─── MONTHLY TABLE SELLIN (шт) ─────────────────────────────────────────────────
+function SellInTable({ months, totalPlan, totalFact, qpct }) {
+  const rows = [...months, { n: 'Итого', plan: totalPlan, fact: totalFact, pct: qpct, isTotal: true }];
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <thead>
+        <tr style={{ color: '#9CA3AF', borderBottom: '1px solid #F3F4F6' }}>
+          <th style={{ textAlign: 'left', padding: '4px 0 6px', fontWeight: 600 }}>Месяц</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px 6px', fontWeight: 600 }}>План, шт</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px 6px', fontWeight: 600 }}>Факт, шт</th>
+          <th style={{ textAlign: 'right', padding: '4px 0 6px', fontWeight: 600 }}>%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((m, i) =>
+        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB', fontWeight: m.isTotal ? 700 : 400, background: m.isTotal ? '#F9FAFB' : 'transparent' }}>
+            <td style={{ padding: '6px 0', color: '#374151' }}>{m.n}</td>
+            <td style={{ textAlign: 'right', padding: '6px 8px', color: '#6B7280' }}>{m.plan != null ? m.plan.toLocaleString('ru') : '—'}</td>
+            <td style={{ textAlign: 'right', padding: '6px 8px', color: m.fact == null ? '#D1D5DB' : '#111827', fontWeight: m.fact != null ? 600 : 400 }}>{m.fact != null ? m.fact.toLocaleString('ru') : '—'}</td>
+            <td style={{ textAlign: 'right', padding: '6px 0', fontWeight: 700, color: m.fact != null ? pctColor(m.pct) : '#D1D5DB' }}>{m.fact != null ? `${m.pct}%` : '—'}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>);
+
+}
+// ─── SCALE TABLE ─────────────────────────────────────────────────────────────
+function ScaleTable({ rows, activeIdx, totalPlan, totalFact, colLabel }) {
+  const showCalc = totalPlan != null && totalFact != null;
+  const thresholds = [1.1, 1.0, 0.9, null]; // matches rows order
+  return (
+    <table style={{ borderCollapse: 'collapse', fontSize: 12, marginTop: 8, width: '100%' }}>
+      <thead>
+        <tr style={{ color: '#9CA3AF' }}>
+          <th style={{ textAlign: 'left', padding: '3px 8px 6px 0', fontWeight: 600 }}>Выполнение</th>
+          <th style={{ textAlign: 'center', padding: '3px 8px 6px', fontWeight: 600 }}>Дистр.</th>
+          <th style={{ textAlign: 'center', padding: '3px 8px 6px', fontWeight: 600 }}>Партнёр</th>
+          {showCalc && <th style={{ textAlign: 'right', padding: '3px 0 6px 8px', fontWeight: 600, color: '#374151' }}>{colLabel || 'Осталось'}</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => {
+          const thr = thresholds[i];
+          const need = thr != null && showCalc ? Math.max(0, Math.round(totalPlan * thr) - totalFact) : null;
+          const done = thr != null && showCalc && need === 0;
+          const active = i === activeIdx;
+          return (
+            <tr key={i} style={{ background: active ? '#EFF6FF' : 'transparent', fontWeight: active ? 700 : 400 }}>
+              <td style={{ padding: '5px 8px 5px 0', color: active ? '#1D4ED8' : '#374151' }}>{r.label}</td>
+              <td style={{ textAlign: 'center', padding: '5px 8px', color: active ? '#1D4ED8' : '#6B7280' }}>{r.d}</td>
+              <td style={{ textAlign: 'center', padding: '5px 8px', color: '#16A34A', fontWeight: 600 }}>{r.p}</td>
+              {showCalc &&
+              <td style={{ textAlign: 'right', padding: '5px 0 5px 8px', fontSize: 11, color: done ? '#16A34A' : need != null && need > 0 ? active ? '#1D4ED8' : '#6B7280' : '#D1D5DB', fontWeight: active ? 700 : 400 }}>
+                  {thr == null ? '—' : done ? '✓' : need != null ? `${need.toLocaleString('ru')} шт` : '—'}
+                </td>
+              }
+            </tr>);
+
+        })}
+      </tbody>
+    </table>);
+
+}
+
+// ─── RECOMMENDATION HELPERS ──────────────────────────────────────────────────
+function getSellOutRec(sc) {
+  const { months, totalPlan, totalFact, qpct } = sc.sellout;
+  const month = sc.month;
+  const curM = month ? months[month - 1] : null;
+  const curFact = curM?.fact || 0;
+  const curPlan = curM?.plan || 0;
+  const curPct = curM?.pct || 0;
+  const m1 = months[0];
+
+  if (month === null || sc.mode === 'settled') {
+    if (qpct < 90) return { icon: '❌', lvl: 'danger', text: 'План квартала выполнен менее 90%. Блок обнулён.' };
+    if (qpct < 100) return { icon: '✅', lvl: 'ok', text: 'План выполнен более 90%' };
+    if (qpct < 110) return { icon: '✅', lvl: 'ok', text: 'План выполнен более 100%' };
+    return { icon: '✅', lvl: 'ok', text: 'План выполнен более 110%' };
+  }
+
+  if (month === 1) {
+    if (curPct < 100) return { icon: '⭐', lvl: 'warn', text: `Осталось продать ${(curPlan - curFact).toLocaleString('ru')} шт до 100% плана месяца` };
+    return { icon: '✅', lvl: 'ok', text: 'План месяца выполнен' };
+  }
+
+  if (month === 2) {
+    const m1ok = m1?.pct >= 100;
+    if (!m1ok && curPct < 100) {
+      return { icon: '⭐', lvl: 'warn', text: `Осталось продать ${(curPlan - curFact).toLocaleString('ru')} шт до 100% плана месяца. ⚠ ${m1.n} выполнен ниже 100%. Нужны 2 месяца по 100%+` };
+    }
+    if (m1ok && curPct < 100) {
+      return { icon: '⭐', lvl: 'warn', text: `Осталось продать ${(curPlan - curFact).toLocaleString('ru')} шт до 100% плана месяца` };
+    }
+    if (!m1ok && curPct >= 100) {
+      return { icon: '✅', lvl: 'ok', text: `План месяца выполнен. Необходимо выполнить ${months[2].n} более 100% для сохранения блока.` };
+    }
+    return { icon: '✅', lvl: 'ok', text: 'Два месяца выполнены.' };
+  }
+
+  if (month === 3) {
+    const allCompleted = months.filter((m) => m.fact != null);
+    if (allCompleted.filter((m) => m.pct < 100).length >= 2) {
+      return { icon: '❌', lvl: 'danger', text: '2 месяца выполнены ниже 100%. Блок обнулён. Продолжайте выполнять сбыт: он влияет на другие блоки и статус' };
+    }
+    const need90 = Math.max(Math.round(totalPlan * 0.9) - totalFact, 0);
+    const need100 = Math.max(totalPlan - totalFact, 0);
+    const need110 = Math.max(Math.round(totalPlan * 1.1) - totalFact, 0);
+    if (qpct < 90) return { icon: '⭐', lvl: 'warn', text: `Осталось продать ${need90.toLocaleString('ru')} шт до первого уровня скидки — 90% плана.` };
+    if (qpct < 100) return { icon: '✅', lvl: 'ok', text: `Минимальный уровень уже есть. Осталось продать ${need100.toLocaleString('ru')} шт до следующего уровня — 100% плана.` };
+    if (qpct < 110) return { icon: '✅', lvl: 'ok', text: `Средний уровень уже есть. Продайте ${need110.toLocaleString('ru')} шт до максимального уровня — 110% плана.` };
+    return { icon: '✅', lvl: 'ok', text: 'Максимум выполнен' };
+  }
+  return null;
+}
+
+function getSellInRec(sc) {
+  const { months, totalPlan, totalFact, qpct } = sc.sellin;
+  const month = sc.month;
+  const curM = month ? months[month - 1] : null;
+  const curFact = curM?.fact || 0;
+  const curPlan = curM?.plan || 0;
+  const curPct = curM?.pct || 0;
+  const m1 = months[0];
+
+  if (month === null || sc.mode === 'settled') {
+    if (qpct < 90) return { icon: '❌', lvl: 'danger', text: 'План квартала выполнен менее 90%. Блок обнулён.' };
+    if (qpct < 100) return { icon: '✅', lvl: 'ok', text: 'План выполнен более 90%' };
+    if (qpct < 110) return { icon: '✅', lvl: 'ok', text: 'План выполнен более 100%' };
+    return { icon: '✅', lvl: 'ok', text: 'План выполнен более 110%' };
+  }
+
+  if (month === 3) {
+    const allCompleted = months.filter((m) => m.fact != null);
+    if (allCompleted.filter((m) => m.pct < 100).length >= 2) {
+      return { icon: '❌', lvl: 'danger', text: '2 месяца выполнены ниже 100%. Блок обнулён. Продолжайте выполнять закупки: они влияют на другие блоки' };
+    }
+  }
+
+  const completedPrev = months.slice(0, month - 1).filter((m) => m.fact != null);
+  const below70prev = completedPrev.filter((m) => m.pct < 70);
+  if (below70prev.length >= 1) {
+    return { icon: '❌', lvl: 'danger', text: `${below70prev[0].n} выполнен ниже 70%. Блок обнулён. Продолжайте выполнять закупки: они влияют на другие блоки` };
+  }
+
+  if (month === 1) {
+    if (curPct < 70) return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${(Math.round(curPlan * 0.7) - curFact).toLocaleString('ru')} шт до 70% плана месяца, чтобы блок не заблокировался.` };
+    if (curPct < 100) return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${(curPlan - curFact).toLocaleString('ru')} шт до 100% плана месяца` };
+    return { icon: '✅', lvl: 'ok', text: 'План месяца выполнен' };
+  }
+
+  if (month === 2) {
+    const m1pct = m1?.pct || 0;
+    if (curPct < 70 && m1pct >= 70 && m1pct < 100) {
+      return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${(Math.round(curPlan * 0.7) - curFact).toLocaleString('ru')} шт до 70% иначе блокировка. ⚠ ${m1.n} выполнен ниже 100%. Нужны 2 месяца по 100%+` };
+    }
+    if (curPct < 70 && m1pct >= 70) {
+      return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${(Math.round(curPlan * 0.7) - curFact).toLocaleString('ru')} шт до 70% иначе блокировка` };
+    }
+    if (curPct >= 70 && curPct < 100 && m1pct > 70) {
+      return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${(curPlan - curFact).toLocaleString('ru')} шт до 100% плана месяца` };
+    }
+    if (m1pct < 100 && curPct >= 100) {
+      return { icon: '✅', lvl: 'ok', text: `План месяца выполнен. Необходимо выполнить ${months[2].n} более 100% для сохранения блока` };
+    }
+    if (m1pct >= 100 && curPct >= 100) {
+      return { icon: '✅', lvl: 'ok', text: 'Два месяца выполнены' };
+    }
+    return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${(curPlan - curFact).toLocaleString('ru')} шт до 100% плана месяца` };
+  }
+
+  if (month === 3) {
+    const need90 = Math.max(Math.round(totalPlan * 0.9) - totalFact, 0);
+    const need100 = Math.max(totalPlan - totalFact, 0);
+    const need110 = Math.max(Math.round(totalPlan * 1.1) - totalFact, 0);
+    if (qpct < 90) return { icon: '⭐', lvl: 'warn', text: `Осталось закупить ${need90.toLocaleString('ru')} шт до первого уровня скидки — 90% плана.` };
+    if (qpct < 100) return { icon: '✅', lvl: 'ok', text: `Минимальный уровень уже есть. Осталось закупить ${need100.toLocaleString('ru')} шт до следующего уровня — 100% плана.` };
+    if (qpct < 110) return { icon: '✅', lvl: 'ok', text: `Средний уровень уже есть. Закупите ${need110.toLocaleString('ru')} шт до максимального уровня — 110% плана.` };
+    return { icon: '✅', lvl: 'ok', text: 'Максимум выполнен' };
+  }
+  return null;
+}
+function RecBanner({ rec }) {
+  if (!rec) return null;
+  const s = {
+    ok: { bg: '#F0FDF4', border: '#BBF7D0', color: '#15803D' },
+    info: { bg: '#EFF6FF', border: '#BFDBFE', color: '#1E40AF' },
+    warn: { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E' },
+    danger: { bg: '#FEF2F2', border: '#FECACA', color: '#991B1B' }
+  }[rec.lvl] || { bg: '#F9FAFB', border: '#E5E7EB', color: '#374151' };
+  return (
+    <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: s.bg, border: `1px solid ${s.border}`, fontSize: 12, color: s.color, lineHeight: 1.5 }}>
+      {rec.icon} {rec.text}
+    </div>);
+
+}
+
+// ─── BLOCK 1: ВЫПОЛНЕНИЕ ПЛАНА СБЫТА ────────────────────────────────────────
+function SellOutBlock({ sc, isPartner }) {
+  const { months, totalPlan, totalFact, qpct, max = 8 } = sc.sellout;
+  const scaleRows = [
+  { label: '≥ 110%', d: '8%', p: '10%' },
+  { label: '≥ 100%', d: '6%', p: '7%' },
+  { label: '≥ 90%', d: '0%', p: '3%' },
+  { label: '< 90%', d: '0%', p: '0%' }];
+
+  const activeIdx = qpct >= 110 ? 0 : qpct >= 100 ? 1 : qpct >= 90 ? 2 : 3;
+  const rec = getSellOutRec(sc);
+  const comp = sellOutCompute(sc, isPartner);
+  const recommendation = rec ? `${rec.icon} ${rec.text}` : 'Выполнение плана сбыта по квартальному БДО';
+  return (
+    <BlockRow num="2" title="Выполнение плана сбыта (Sell-Out)"
+    recommendation={recommendation}
+    statusText={comp.statusText} statusTone={comp.statusTone}
+    badge={comp.badge} badgeTone={comp.badgeTone}>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 220px' }}>
+          <SellOutTable months={months} totalPlan={totalPlan} totalFact={totalFact} qpct={qpct} />
+        </div>
+        <div style={{ minWidth: 190 }}>
+          <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>Шкала скидок</div>
+          <ScaleTable rows={scaleRows} activeIdx={activeIdx} totalPlan={totalPlan} totalFact={totalFact} colLabel="Осталось продать" />
+        </div>
+      </div>
+    </BlockRow>);
+
+}
+// ─── BLOCK 2: СООТНОШЕНИЕ ЛИНЕЕК СБЫТА (по ТЗ) ──────────────────────────────
+const SO_LINES = [
+{ name: 'Астерия', limit: 0.11 },
+{ name: 'Флоу', limit: 0.30 },
+{ name: 'Балк Филл', limit: 0.02 }];
+
+
+function SellOutLinesBlock({ sc }) {
+  const { quarterPlan = 1300, sold = {}, max = 3, finalSet } = sc.selloutLines;
+  const [periodKey, setPeriodKey] = React.useState('quarter');
+
+  const periodOptions = [
+  { key: 'quarter', label: 'Квартал', plan: quarterPlan, fact: sc.sellout.totalFact, pct: sc.sellout.qpct },
+  { key: 'm1', label: sc.sellout.months[0]?.n || 'Апрель', plan: Math.round(quarterPlan * ((sc.sellout.months[0]?.plan || 0) / (sc.sellout.totalPlan || quarterPlan))), fact: sc.sellout.months[0]?.fact || 0, pct: sc.sellout.months[0]?.pct || 0 },
+  { key: 'm2', label: sc.sellout.months[1]?.n || 'Май', plan: Math.round(quarterPlan * ((sc.sellout.months[1]?.plan || 0) / (sc.sellout.totalPlan || quarterPlan))), fact: sc.sellout.months[1]?.fact || 0, pct: sc.sellout.months[1]?.pct || 0 },
+  { key: 'm3', label: sc.sellout.months[2]?.n || 'Июнь', plan: Math.round(quarterPlan * ((sc.sellout.months[2]?.plan || 0) / (sc.sellout.totalPlan || quarterPlan))), fact: sc.sellout.months[2]?.fact || 0, pct: sc.sellout.months[2]?.pct || 0 }];
+
+  const selectedPeriod = periodOptions.find((p) => p.key === periodKey) || periodOptions[0];
+
+  const getPeriodSold = () => {
+    if (periodKey === 'quarter') return sold;
+    const totalFact = sc.sellout.totalFact || 0;
+    const periodFact = selectedPeriod.fact || 0;
+    const k = totalFact > 0 ? periodFact / totalFact : 0;
+    const result = {};
+    Object.entries(sold).forEach(([name, qty]) => { result[name] = Math.round(qty * k); });
+    return result;
+  };
+
+  const periodSold = getPeriodSold();
+  const periodPlan = selectedPeriod.plan || 0;
+  const rows = SO_LINES.map((l) => {
+    const plan = Math.ceil(periodPlan * l.limit);
+    const fact = periodSold[l.name] || 0;
+    const left = Math.max(plan - fact, 0);
+    return { name: l.name, limit: l.limit, plan, fact, left, ok: fact >= plan };
+  });
+
+  const quarterRows = SO_LINES.map((l) => {
+    const plan = Math.ceil(quarterPlan * l.limit);
+    const fact = sold[l.name] || 0;
+    const left = Math.max(plan - fact, 0);
+    return { name: l.name, limit: l.limit, plan, fact, left, ok: fact >= plan };
+  });
+  const fails = quarterRows.filter((r) => !r.ok);
+  const okLines = quarterRows.filter((r) => r.ok);
+  const allOk = fails.length === 0;
+  const statusText = `выполнены ${okLines.length} из ${quarterRows.length}`;
+
+  let badge, badgeTone, statusTone;
+  if (finalSet) {
+    if (allOk) {badge = `Начислено ${max}% из ${max}%`;badgeTone = 'green';statusTone = 'green';} else
+    {badge = `Начислено 0% из ${max}%`;badgeTone = 'red';statusTone = 'red';}
+  } else if (allOk) {
+    badge = `Прогноз ${max}% из ${max}%`;badgeTone = 'green';statusTone = 'green';
+  } else {
+    badge = `Прогноз 0% из ${max}%`;badgeTone = 'yellow';statusTone = 'yellow';
+  }
+
+  let recommendation;
+  if (finalSet && !allOk) {
+    recommendation = '❌ Блок обнулен';
+  } else if (allOk) {
+    recommendation = '✅ Все линейки выполнены';
+  } else {
+    const failParts = fails.map((r) => `${r.left.toLocaleString('ru')} шт ${r.name}`);
+    const okParts = okLines.map((r) => `✅ ${r.name} выполнена`);
+    recommendation = `⭐ Осталось продать ${failParts.join(', ')}` + (okParts.length ? ` · ${okParts.join(' · ')}` : '');
+  }
+
+  return (
+    <BlockRow num="5" title="Соотношение линеек сбыта (Sell-Out)"
+    recommendation={recommendation}
+    statusText={statusText}
+    statusTone={statusTone}
+    badge={badge}
+    badgeTone={badgeTone}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Выберите период</span>
+          <select value={periodKey} onChange={(e) => setPeriodKey(e.target.value)} style={{ minWidth: 150, padding: '7px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#111827', fontSize: 12, fontWeight: 600 }}>
+            {periodOptions.map((p) =>
+            <option key={p.key} value={p.key}>{p.label}</option>
+            )}
+          </select>
+        </label>
+      </div>
+      <SOLinesTable rows={rows} periodPlan={periodPlan} status={finalSet && !allOk ? 'Обнулён' : 'OK'} />
+      <div style={{ marginTop: 10, padding: '8px 12px', background: '#F9FAFB', borderRadius: 8, fontSize: 12, color: '#6B7280', border: '1px solid #E5E7EB', lineHeight: 1.5 }}>
+        Размер скидки: 2% для статуса дистрибьютор, 3% для статуса партнёр
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+        <button style={{ padding: '8px 14px', background: 'white', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+        onClick={(e) => e.preventDefault()}>
+          Подробнее →
+        </button>
+      </div>
+    </BlockRow>);
+
+}
+
+function SOLinesTable({ rows, periodPlan, status }) {
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <thead>
+        <tr style={{ color: '#9CA3AF', borderBottom: '1px solid #F3F4F6' }}>
+          <th style={{ textAlign: 'left', padding: '6px 8px 8px 0', fontWeight: 600 }}>Линейка</th>
+          <th style={{ textAlign: 'right', padding: '6px 12px 8px', fontWeight: 600 }}>Цель</th>
+          <th style={{ textAlign: 'right', padding: '6px 12px 8px', fontWeight: 600 }}>Факт</th>
+          <th style={{ textAlign: 'right', padding: '6px 0 8px 12px', fontWeight: 600 }}>Осталось продать</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => {
+          const failBg = !r.ok && status === 'Обнулён' ? '#FEF2F2' : !r.ok ? '#FFFBEB' : 'transparent';
+          // Факт % = доля факта от плана выбранного периода
+          const factPct = periodPlan > 0 ? r.fact / periodPlan * 100 : 0;
+          const factPctStr = factPct >= 10 ? factPct.toFixed(1) : factPct.toFixed(1);
+          const limitPct = Math.round(r.limit * 100);
+          return (
+            <tr key={i} style={{ background: failBg, borderBottom: '1px solid #F9FAFB' }}>
+              <td style={{ padding: '10px 8px 10px 0', color: '#111827', fontWeight: 500 }}>
+                {r.ok && <span style={{ color: '#16A34A', marginRight: 6 }}>●</span>}
+                {!r.ok && <span style={{ color: '#D97706', marginRight: 6 }}>●</span>}
+                {r.name}
+              </td>
+              <td style={{ textAlign: 'right', padding: '10px 12px', color: '#6B7280' }}>
+                {limitPct}% / {r.plan.toLocaleString('ru')} шт
+              </td>
+              <td style={{ textAlign: 'right', padding: '10px 12px', color: '#111827', fontWeight: 600 }}>
+                {factPctStr}% / {r.fact.toLocaleString('ru')} шт
+              </td>
+              <td style={{ textAlign: 'right', padding: '10px 0 10px 12px', color: r.left > 0 ? '#92400E' : '#9CA3AF', fontWeight: r.left > 0 ? 700 : 400 }}>
+                {r.left > 0 ? r.left.toLocaleString('ru') : '—'}
+              </td>
+            </tr>);
+
+        })}
+      </tbody>
+    </table>);
+
+}
+
+
+// ─── BLOCK 3: ВЫПОЛНЕНИЕ ПЛАНА ЗАКУПОК ──────────────────────────────────────
+function SellInBlock({ sc, isPartner }) {
+  const { months, totalPlan, totalFact, qpct, max = 4 } = sc.sellin;
+  const scaleRows = [
+  { label: '≥ 110%', d: '3%', p: '4%' },
+  { label: '≥ 100%', d: '2%', p: '3%' },
+  { label: '≥ 90%', d: '0%', p: '2%' },
+  { label: '< 90%', d: '0%', p: '0%' }];
+
+  const activeIdx = qpct >= 110 ? 0 : qpct >= 100 ? 1 : qpct >= 90 ? 2 : 3;
+  const rec = getSellInRec(sc);
+  const comp = sellInCompute(sc, isPartner);
+  const recommendation = rec ? `${rec.icon} ${rec.text}` : 'Выполнение плана закупок по квартальному БДО';
+  const [view, setView] = React.useState('two');
+  const showToggle = sc.id === 'm1';
+  return (
+    <BlockRow num="3" title="Выполнение плана закупок (Sell-In)"
+    recommendation={recommendation}
+    statusText={comp.statusText} statusTone={comp.statusTone}
+    badge={comp.badge} badgeTone={comp.badgeTone}>
+
+      {showToggle &&
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>Вид:</span>
+          <div style={{ display: 'inline-flex', background: '#F3F4F6', borderRadius: 6, padding: 2 }}>
+            <button onClick={() => setView('two')} style={{ padding: '4px 10px', fontSize: 12, border: 'none', borderRadius: 4, cursor: 'pointer', background: view === 'two' ? '#fff' : 'transparent', color: view === 'two' ? '#1D4ED8' : '#6B7280', fontWeight: view === 'two' ? 700 : 500, boxShadow: view === 'two' ? '0 1px 2px rgba(0,0,0,.06)' : 'none' }}>2 таблицы</button>
+            <button onClick={() => setView('one')} style={{ padding: '4px 10px', fontSize: 12, border: 'none', borderRadius: 4, cursor: 'pointer', background: view === 'one' ? '#fff' : 'transparent', color: view === 'one' ? '#1D4ED8' : '#6B7280', fontWeight: view === 'one' ? 700 : 500, boxShadow: view === 'one' ? '0 1px 2px rgba(0,0,0,.06)' : 'none' }}>1 таблица (шаблон)</button>
+          </div>
+        </div>
+      }
+
+      {showToggle && view === 'one' ?
+      <>
+          <SellInCombinedTable months={months} totalPlan={totalPlan} totalFact={totalFact} qpct={qpct} />
+        </> :
+
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 220px' }}>
+            <SellInTable months={months} totalPlan={totalPlan} totalFact={totalFact} qpct={qpct} />
+          </div>
+          <div style={{ minWidth: 190 }}>
+            <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.04em' }}>Шкала скидок</div>
+            <ScaleTable rows={scaleRows} activeIdx={activeIdx} totalPlan={totalPlan} totalFact={totalFact} colLabel="Осталось закупить" />
+          </div>
+        </div>
+      }
+    </BlockRow>);
+
+}
+
+// Объединённая таблица по шаблону (Период / План / Факт / Вып. / Осталось до 70/90/100/110%)
+function SellInCombinedTable({ months, totalPlan, totalFact, qpct }) {
+  const thresholds = [0.7, 0.9, 1.0, 1.1];
+  const headers = ['Осталось до 70%', 'Осталось до 90%', 'Осталось до 100%', 'Осталось до 110%'];
+  const rows = [...months, { n: '2 квартал', plan: totalPlan, fact: totalFact, pct: qpct, isTotal: true }];
+  const fmt = (v) => v == null ? '—' : v.toLocaleString('ru');
+  const remain = (plan, fact, t) => {
+    if (plan == null) return '—';
+    const f = fact == null ? 0 : fact;
+    const need = Math.round(plan * t) - f;
+    return need <= 0 ? '—' : need.toLocaleString('ru');
+  };
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 780 }}>
+        <thead>
+          <tr style={{ color: '#9CA3AF', borderBottom: '1px solid #E5E7EB' }}>
+            <th style={{ textAlign: 'left', padding: '8px 12px 10px 0', fontWeight: 600 }}>Период</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>План</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>Факт</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>Вып.</th>
+            {headers.map((h, i) =>
+            <th key={i} style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600, whiteSpace: 'normal', minWidth: 80 }}>{h}</th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) =>
+          <tr key={i} style={{ borderBottom: '1px solid #F3F4F6', fontWeight: r.isTotal ? 700 : 400, background: r.isTotal ? '#F9FAFB' : 'transparent' }}>
+              <td style={{ padding: '10px 12px 10px 0', color: '#111827' }}>{r.n}</td>
+              <td style={{ textAlign: 'right', padding: '10px 12px', color: '#374151' }}>{fmt(r.plan)}</td>
+              <td style={{ textAlign: 'right', padding: '10px 12px', color: r.fact == null ? '#D1D5DB' : '#111827' }}>{fmt(r.fact)}</td>
+              <td style={{ textAlign: 'right', padding: '10px 12px', color: r.fact == null ? '#D1D5DB' : pctColor(r.pct), fontWeight: 700 }}>{r.fact == null ? '—' : `${r.pct}%`}</td>
+              {thresholds.map((t, j) =>
+            <td key={j} style={{ textAlign: 'right', padding: '10px 12px', color: '#374151' }}>{remain(r.plan, r.fact, t)}</td>
+            )}
+            </tr>
+          )}
+          <tr style={{ borderTop: '2px solid #E5E7EB' }}>
+            <td style={{ padding: '10px 12px 10px 0', color: '#6B7280', fontWeight: 600 }}>Скидка Д / П</td>
+            <td colSpan={3}></td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#9CA3AF' }}>—</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#374151', fontWeight: 600 }}>0% / 2%</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#374151', fontWeight: 600 }}>2% / 3%</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#16A34A', fontWeight: 700 }}>3% / 4%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>);
+
+}
+// ─── BLOCK 4: СООТНОШЕНИЕ ЛИНЕЕК ЗАКУПОК (Sell-In) per PRD v2 ──────────────
+const SI_LINES = [
+{ name: 'Эстелайт Астериа', limit: 11.0 },
+{ name: 'Юниверсал Флоу', limit: 30.0 },
+{ name: 'Балк Филл Флоу', limit: 2.0 },
+{ name: 'Эстелайт Постериор', limit: 3.0 },
+{ name: 'Бонд Форс', limit: 2.5 },
+{ name: 'Бонд Юниверсал II', limit: 0.8 }];
+
+
+// Per-scenario hard-coded purchased qty per line (по примеру из PRD)
+const SI_LINE_DATA = {
+  m1: { 'Эстелайт Астериа': 8, 'Юниверсал Флоу': 40, 'Балк Филл Флоу': 1, 'Эстелайт Постериор': 0, 'Бонд Форс': 0, 'Бонд Юниверсал II': 0, other: 49 },
+  m2g: { 'Эстелайт Астериа': 110, 'Юниверсал Флоу': 285, 'Балк Филл Флоу': 26, 'Эстелайт Постериор': 18, 'Бонд Форс': 20, 'Бонд Юниверсал II': 6, other: 491 },
+  m2b: { 'Эстелайт Астериа': 35, 'Юниверсал Флоу': 165, 'Балк Филл Флоу': 8, 'Эстелайт Постериор': 0, 'Бонд Форс': 0, 'Бонд Юниверсал II': 0, other: 365 },
+  m3g: { 'Эстелайт Астериа': 152, 'Юниверсал Флоу': 410, 'Балк Филл Флоу': 30, 'Эстелайт Постериор': 38, 'Бонд Форс': 35, 'Бонд Юниверсал II': 12, other: 703 },
+  m3b: { 'Эстелайт Астериа': 40, 'Юниверсал Флоу': 197, 'Балк Филл Флоу': 2, 'Эстелайт Постериор': 0, 'Бонд Форс': 0, 'Бонд Юниверсал II': 0, other: 467 },
+  done: { 'Эстелайт Астериа': 152, 'Юниверсал Флоу': 405, 'Балк Филл Флоу': 28, 'Эстелайт Постериор': 40, 'Бонд Форс': 33, 'Бонд Юниверсал II': 11, other: 665 }
+};
+
+function SellInLinesBlock({ sc, isPartner }) {
+  const max = 2;
+  const earnedValue = isPartner ? 2 : 1;
+  const quarterPlan = 1300;
+  const data = SI_LINE_DATA[sc.id] || SI_LINE_DATA.m1;
+  const [periodKey, setPeriodKey] = React.useState('quarter');
+  const [targetPct, setTargetPct] = React.useState(100);
+
+  const periodOptions = [
+  { key: 'quarter', label: 'Квартал', plan: sc.sellin.totalPlan, fact: sc.sellin.totalFact, pct: sc.sellin.qpct },
+  { key: 'april', label: 'Апрель', plan: sc.sellin.months[0]?.plan || 0, fact: sc.sellin.months[0]?.fact || 0, pct: sc.sellin.months[0]?.pct || 0 },
+  { key: 'may', label: 'Май', plan: sc.sellin.months[1]?.plan || 0, fact: sc.sellin.months[1]?.fact || 0, pct: sc.sellin.months[1]?.pct || 0 },
+  { key: 'june', label: 'Июнь', plan: sc.sellin.months[2]?.plan || 0, fact: sc.sellin.months[2]?.fact || 0, pct: sc.sellin.months[2]?.pct || 0 }];
+
+  const selectedPeriod = periodOptions.find((p) => p.key === periodKey) || periodOptions[0];
+  const targetOptionsRaw = [90, 100, 110].filter((p) => selectedPeriod.pct < p);
+  const targetOptions = targetOptionsRaw.length ? targetOptionsRaw : [110];
+  const effectiveTargetPct = targetOptions.includes(targetPct) ? targetPct : targetOptions.includes(100) ? 100 : targetOptions[0];
+
+  React.useEffect(() => {
+    if (targetPct !== effectiveTargetPct) setTargetPct(effectiveTargetPct);
+  }, [periodKey, sc.id, selectedPeriod.pct, effectiveTargetPct]);
+
+  const statusRows = SI_LINES.map((l) => {
+    const target = quarterPlan * (l.limit / 100);
+    const target90 = Math.ceil(target * 0.9);
+    const target110 = Math.ceil(target * 1.1);
+    const bought = data[l.name] || 0;
+    return {
+      name: l.name,
+      limit: l.limit,
+      bought,
+      to90: Math.max(target90 - bought, 0),
+      to110: Math.max(target110 - bought, 0),
+      okMin: bought >= target90,
+      okMax: bought >= target110
+    };
+  });
+
+  const sellInPct = sc.sellin.qpct;
+  const sellInOk = sellInPct >= 90;
+  const linesWithMin = statusRows.filter((r) => r.okMin).length;
+  const linesWithMax = statusRows.filter((r) => r.okMax).length;
+  const allMin = statusRows.every((r) => r.okMin);
+  const allMax = statusRows.every((r) => r.okMax);
+  const isSettled = sc.mode === 'settled';
+
+  let recIcon = '⭐', recText = '', statusText = '', statusTone = 'yellow';
+  let badgeTone = 'yellow', earned = 0, badgeStage = isSettled ? 'final' : 'forecast';
+
+  const missingTo110 = statusRows.filter((r) => !r.okMax).map((r) => `${r.to110.toLocaleString('ru')} шт ${r.name}`);
+  const missingTo90 = statusRows.filter((r) => !r.okMin).map((r) => `${r.to90.toLocaleString('ru')} шт ${r.name}`);
+  const needAnyTo90 = Math.max(Math.round(sc.sellin.totalPlan * 0.9) - sc.sellin.totalFact, 0);
+
+  if (isSettled) {
+    if (!sellInOk) {
+      earned = 0; recIcon = '❌'; recText = 'Блок обнулен из-за недостаточного выполнения плана закупок (Sell-In)';
+      statusText = `выполнены ${linesWithMin} из 6`; statusTone = 'red'; badgeTone = 'red';
+    } else if (!allMin) {
+      earned = 0; recIcon = '❌'; recText = 'Блок обнулен из-за нецелевого соотношения линеек';
+      statusText = `выполнены ${linesWithMin} из 6`; statusTone = 'red'; badgeTone = 'red';
+    } else {
+      earned = earnedValue; recIcon = '✅'; recText = 'Все условия блока выполнены';
+      statusText = `выполнены ${linesWithMin} из 6`; statusTone = 'green'; badgeTone = 'green';
+    }
+  } else {
+    if (sellInOk && allMax) {
+      earned = earnedValue; recIcon = '✅'; recText = 'Все условия выполнены';
+      statusText = `выполнены ${linesWithMax} из 6`; statusTone = 'green'; badgeTone = 'green';
+    } else if (sellInPct >= 110 && !allMax) {
+      earned = 0; recIcon = '⭐'; recText = `Осталось закупить ${missingTo110.slice(0, 3).join(', ')}`;
+      statusText = `выполнены ${linesWithMax} из 6`; statusTone = 'yellow'; badgeTone = 'yellow';
+    } else if (sellInOk && allMin) {
+      earned = earnedValue; recIcon = '✅'; recText = 'Все условия выполнены. ⚠ Перед следующей закупкой обновите расчёт, чтобы сохранить выполнение линеек';
+      statusText = `выполнены ${linesWithMin} из 6`; statusTone = 'green'; badgeTone = 'green';
+    } else if (sellInOk && !allMin) {
+      earned = 0; recIcon = '⭐'; recText = 'Выберите цель расчёта. Покажем, какие линейки и сколько нужно докупить';
+      statusText = `выполнены ${linesWithMin} из 6`; statusTone = 'yellow'; badgeTone = 'yellow';
+    } else if (!sellInOk && allMin) {
+      earned = 0; recIcon = '⭐'; recText = `Осталось закупить ${needAnyTo90.toLocaleString('ru')} шт любой продукции` + (!allMax ? '. ⚠ Перед следующей закупкой обновите расчёт, чтобы сохранить выполнение линеек' : '');
+      statusText = `выполнены ${allMax ? linesWithMax : linesWithMin} из 6`; statusTone = 'yellow'; badgeTone = 'yellow';
+    } else {
+      earned = 0; recIcon = '⭐'; recText = 'Выберите цель расчёта. Покажем, какие линейки и сколько нужно докупить';
+      statusText = `выполнены ${linesWithMin} из 6`; statusTone = 'yellow'; badgeTone = 'yellow';
+    }
+  }
+
+  const getPeriodLineData = () => {
+    if (periodKey === 'quarter') return data;
+    const totalFact = sc.sellin.totalFact || 0;
+    const periodFact = selectedPeriod.fact || 0;
+    const k = totalFact > 0 ? periodFact / totalFact : 0;
+    const result = {};
+    Object.entries(data).forEach(([name, qty]) => { result[name] = Math.round(qty * k); });
+    const sumWithoutFix = Object.values(result).reduce((s, v) => s + v, 0);
+    result.other = Math.max((result.other || 0) + (periodFact - sumWithoutFix), 0);
+    return result;
+  };
+
+  const periodData = getPeriodLineData();
+  const targetMultiplier = effectiveTargetPct / 100;
+  const periodPlan = selectedPeriod.plan || 0;
+
+  const tableRows = SI_LINES.map((l) => {
+    const targetQty = Math.ceil(periodPlan * targetMultiplier * (l.limit / 100));
+    const bought = periodData[l.name] || 0;
+    return { name: l.name, limit: l.limit, bought, targetQty, left: Math.max(targetQty - bought, 0), ok: bought >= targetQty };
+  });
+
+  const otherLimit = 50.7;
+  const otherBoughtForTable = periodData.other || 0;
+  const otherTargetQty = Math.ceil(periodPlan * targetMultiplier * (otherLimit / 100));
+  const tableOtherRow = {
+    name: 'Остальное', limit: otherLimit, bought: otherBoughtForTable,
+    targetQty: otherTargetQty, left: Math.max(otherTargetQty - otherBoughtForTable, 0), ok: otherBoughtForTable >= otherTargetQty
+  };
+
+  const badge = fmtBadge(badgeStage, earned, max);
+
+  return (
+    <BlockRow num="4" title="Соотношение линеек закупок (Sell-In)"
+    recommendation={`${recIcon} ${recText}`}
+    statusText={statusText} statusTone={statusTone}
+    badge={badge} badgeTone={badgeTone}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 12 }}>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Выберите период</span>
+          <select value={periodKey} onChange={(e) => setPeriodKey(e.target.value)} style={{ minWidth: 150, padding: '7px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#111827', fontSize: 12, fontWeight: 600 }}>
+            {periodOptions.map((p) =>
+            <option key={p.key} value={p.key}>{p.label}</option>
+            )}
+          </select>
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Установите цель расчёта</span>
+          <select value={effectiveTargetPct} onChange={(e) => setTargetPct(Number(e.target.value))} style={{ minWidth: 220, padding: '7px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#111827', fontSize: 12, fontWeight: 600 }}>
+            {targetOptions.map((p) =>
+            <option key={p} value={p}>{p === 90 ? 'Минимум для зачёта блока' : p === 100 ? '100% плана закупок' : '110% плана закупок'}</option>
+            )}
+          </select>
+        </label>
+      </div>
+      <SILinesTable rows={[...tableRows, tableOtherRow]} />
+      <div style={{ marginTop: 10, padding: '8px 12px', background: '#F9FAFB', borderRadius: 8, fontSize: 12, color: '#6B7280', border: '1px solid #E5E7EB', lineHeight: 1.5 }}>
+        Размер скидки: 1% для статуса дистрибьютор, 2% для статуса партнёр
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button style={{ padding: '7px 12px', background: 'white', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Аналитика→</button>
+        <button style={{ padding: '7px 12px', background: '#16A34A', color: 'white', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Выполнить</button>
+      </div>
+    </BlockRow>);
+
+}
+
+function SILinesTable({ rows }) {
+  const fmtPct = (v) => Number.isFinite(v) ? `${v.toFixed(1).replace('.', ',')}%` : '—';
+  const totals = rows.reduce((a, r) => ({
+    bought: a.bought + r.bought,
+    targetQty: a.targetQty + r.targetQty,
+    left: a.left + r.left
+  }), { bought: 0, targetQty: 0, left: 0 });
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
+        <thead>
+          <tr style={{ color: '#9CA3AF', borderBottom: '1px solid #E5E7EB' }}>
+            <th style={{ textAlign: 'left', padding: '8px 12px 10px 0', fontWeight: 600 }}>Линейка</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>Цель, %</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600, whiteSpace: 'nowrap' }}>План по линейке, шт</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>Закуплено, шт</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>Факт, %</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px 10px', fontWeight: 600 }}>Осталось</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const isOther = r.name === 'Остальное';
+            const factPct = totals.bought > 0 ? r.bought / totals.bought * 100 : null;
+            return (
+              <tr key={i} style={{ borderBottom: '1px solid #F3F4F6', background: isOther ? '#F9FAFB' : 'transparent', fontWeight: isOther ? 600 : 400 }}>
+                <td style={{ padding: '8px 12px 8px 0', color: '#111827' }}>
+                  {r.ok && <span style={{ color: '#16A34A', marginRight: 6 }}>●</span>}
+                  {!r.ok && r.bought > 0 && <span style={{ color: '#D97706', marginRight: 6 }}>●</span>}
+                  {!r.ok && r.bought === 0 && <span style={{ color: '#DC2626', marginRight: 6 }}>●</span>}
+                  {r.name}
+                </td>
+                <td style={{ textAlign: 'right', padding: '8px 12px', color: '#6B7280' }}>{r.limit.toFixed(1)}%</td>
+                <td style={{ textAlign: 'right', padding: '8px 12px', color: '#374151', fontWeight: 600 }}>{r.targetQty.toLocaleString('ru')}</td>
+                <td style={{ textAlign: 'right', padding: '8px 12px', color: '#111827', fontWeight: 600 }}>{r.bought.toLocaleString('ru')}</td>
+                <td style={{ textAlign: 'right', padding: '8px 12px', color: r.ok ? '#16A34A' : '#92400E', fontWeight: 700 }}>{fmtPct(factPct)}</td>
+                <td style={{ textAlign: 'right', padding: '8px 12px', color: r.left > 0 ? '#92400E' : '#16A34A', fontWeight: 700 }}>{r.left > 0 ? r.left.toLocaleString('ru') : '—'}</td>
+              </tr>);
+
+          })}
+          <tr style={{ borderTop: '2px solid #E5E7EB', background: '#F3F4F6', fontWeight: 700 }}>
+            <td style={{ padding: '10px 12px 10px 0', color: '#111827' }}>Итого</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#6B7280' }}>100%</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#374151' }}>{totals.targetQty.toLocaleString('ru')}</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: '#111827' }}>{totals.bought.toLocaleString('ru')}</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: totals.left > 0 ? '#92400E' : '#16A34A' }}>{fmtPct(totals.bought > 0 ? 100 : null)}</td>
+            <td style={{ textAlign: 'right', padding: '10px 12px', color: totals.left > 0 ? '#92400E' : '#16A34A' }}>{totals.left > 0 ? totals.left.toLocaleString('ru') : '—'}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>);
+
+}
+
+// ─── LINES TABLE (shared) ────────────────────────────────────────────────────
+function LinesTable({ rows }) {
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <thead>
+        <tr style={{ color: '#9CA3AF', borderBottom: '1px solid #F3F4F6' }}>
+          <th style={{ textAlign: 'left', padding: '4px 0 6px', fontWeight: 600 }}>Линейка</th>
+          <th style={{ textAlign: 'center', padding: '4px 8px 6px', fontWeight: 600 }}>Лимит</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px 6px', fontWeight: 600 }}>Факт</th>
+          <th style={{ textAlign: 'center', padding: '4px 0 6px', fontWeight: 600 }}></th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((d, i) =>
+        <tr key={i} style={{ borderBottom: '1px solid #F9FAFB' }}>
+            <td style={{ padding: '6px 0', color: '#374151' }}>{d.name}</td>
+            <td style={{ textAlign: 'center', padding: '6px 8px', color: '#6B7280' }}>{d.min}</td>
+            <td style={{ textAlign: 'right', padding: '6px 8px', fontWeight: 600, color: d.ok ? '#16A34A' : '#DC2626' }}>{d.fact}</td>
+            <td style={{ textAlign: 'center', padding: '6px 0' }}>
+              <Tag color={d.ok ? '#15803D' : '#B91C1C'} bg={d.ok ? '#DCFCE7' : '#FEE2E2'}>{d.ok ? 'ОК' : 'Нет'}</Tag>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>);
+
+}
+
+// ─── BLOCK 6: REPORTING (Отчётность) per PRD v2 ────────────────────────────
+function ReportingBlock({ sc, autoReporting }) {
+  const { months, max = 1 } = sc.reporting;
+  const submittedInQuarter = months.filter((m) => m.ok === true).length;
+  const totalSubmitted = sc.id === 'done' ? 12 : submittedInQuarter + 6;
+  const totalReports = 12;
+  const deviationsAll = months.filter((m) => m.ok === false).length;
+  const deviationLimit = 2;
+  const overLimit = deviationsAll > deviationLimit;
+  const isSettled = sc.mode === 'settled';
+  const lastProblem = months.find((m) => m.ok === false) || months.find((m) => m.ok === null);
+
+  const cislinkStatus = !autoReporting ? 'off' : deviationsAll > 0 ? 'errors' : 'on';
+  const cislinkLabel = cislinkStatus === 'off' ? 'не подключен' : cislinkStatus === 'errors' ? 'с ошибками' : 'подключён';
+
+  let recIcon = '⭐',recText = '',earned = 0,statusTone = 'yellow',badgeTone = 'yellow';
+  let badgeStage = isSettled ? 'final' : 'forecast';
+
+  if (cislinkStatus === 'off') {
+    recIcon = '🔌';
+    recText = 'Подключите CISLink и сдайте минимум 2 отчёта автоматически и вовремя до конца квартала, чтобы получить скидку';
+    statusTone = 'yellow';badgeTone = 'yellow';earned = 0;
+  } else if (overLimit) {
+    recIcon = '❌';
+    recText = isSettled ? 'Отклонения превышены. Блок обнулён' : 'Лимит отклонений превышен. Блок обнулён';
+    statusTone = 'red';badgeTone = 'red';earned = 0;
+  } else if (cislinkStatus === 'errors') {
+    recIcon = '🔧';
+    recText = `Исправьте ошибку CISLink${lastProblem?.dl ? ` до ${lastProblem.dl}` : ' до дедлайна'}.`;
+    statusTone = 'yellow';badgeTone = 'yellow';earned = max;
+  } else {
+    recIcon = '✅';
+    recText = 'Отчётность выполнена';
+    statusTone = 'green';badgeTone = 'green';earned = max;
+  }
+
+  const badge = fmtBadge(badgeStage, earned, max);
+
+  const subStatus =
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 600 }}>
+      <span style={{ padding: '2px 8px', borderRadius: 99, background: overLimit ? '#FEE2E2' : '#F3F4F6', color: overLimit ? '#991B1B' : '#374151' }}>
+        Отклонения {deviationsAll} из 2
+      </span>
+      <span style={{ padding: '2px 8px', borderRadius: 99, background: '#F3F4F6', color: '#374151' }}>
+        Сдано {totalSubmitted} из {totalReports}
+      </span>
+      <span style={{ padding: '2px 8px', borderRadius: 99,
+      background: cislinkStatus === 'off' ? '#FEF3C7' : cislinkStatus === 'errors' ? '#FEF3C7' : '#DCFCE7',
+      color: cislinkStatus === 'off' ? '#92400E' : cislinkStatus === 'errors' ? '#92400E' : '#15803D' }}>
+        CISLink {cislinkLabel}
+      </span>
+    </span>;
+
+  return (
+    <BlockRow num="6" title="Отчётность"
+    recommendation={`${recIcon} ${recText}`}
+    statusText={subStatus} statusTone={statusTone}
+    badge={badge} badgeTone={badgeTone}>
+      {cislinkStatus === 'off' ?
+      <div style={{ padding: '8px 12px', background: '#FEF3C7', borderRadius: 8, fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
+          <strong>⚠ CISLink не подключен.</strong> Подключите CISLink и сдайте минимум 2 отчёта автоматически и вовремя до конца квартала, чтобы получить скидку.
+        </div> :
+      <>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', marginBottom: 6 }}>Отчёты текущего квартала</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          {months.map((r, i) => {
+            const cs = r.ok === true ? { bg: '#F0FDF4', border: '#BBF7D0' } :
+            r.ok === false ? { bg: '#FEF2F2', border: '#FECACA' } :
+            { bg: '#F9FAFB', border: '#E5E7EB' };
+            const label = r.ok === true ? 'Вовремя' : r.ok === false && r.sub ? 'Сдан с отклонением' : r.ok === false ? 'Не сдан' : 'Ожидается';
+            const tagColor = r.ok === true ? { c: '#15803D', b: '#DCFCE7' } :
+            r.ok === false ? { c: '#B91C1C', b: '#FEE2E2' } :
+            { c: '#6B7280', b: '#F3F4F6' };
+            return (
+              <div key={i} style={{ flex: '1 1 140px', padding: '10px 12px', borderRadius: 8, background: cs.bg, border: `1px solid ${cs.border}` }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: r.ok === true ? '#166534' : r.ok === false ? '#991B1B' : '#374151', marginBottom: 4 }}>{r.m}</div>
+                <div style={{ fontSize: 10, color: '#6B7280' }}>Дедлайн: <span style={{ fontWeight: 600 }}>{r.dl}</span></div>
+                <div style={{ fontSize: 10, color: '#6B7280', marginBottom: 6 }}>Сдано: <span style={{ fontWeight: 600, color: r.ok === true ? '#16A34A' : r.ok === false && r.sub ? '#DC2626' : '#9CA3AF' }}>{r.sub || '—'}</span></div>
+                <Tag color={tagColor.c} bg={tagColor.b}>{label}</Tag>
+              </div>);
+          })}
+        </div>
+        <div style={{ padding: '8px 12px', background: '#F9FAFB', borderRadius: 8, fontSize: 12, color: '#6B7280', border: '1px solid #E5E7EB', lineHeight: 1.5 }}>
+          Отклонения — это просрочки или ручная подача отчётности. Считаются суммарно. Допустимый лимит отклонений: 2.
+        </div>
+        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+          <button style={{ padding: '7px 12px', background: 'white', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Перейти в отчётность →</button>
+        </div>
+      </>}
+    </BlockRow>);
+
+}
+
+// ─── BLOCK 6: CHANNELS// ─── BLOCK 6: CHANNELS ───────────────────────────────────────────────────────
+function ChannelsBlock({ sc }) {
+  const { ok, b2bPct } = sc.channels;
+  const limit = 40;
+  const over = b2bPct > limit;
+  const b2cPct = +(100 - b2bPct).toFixed(1);
+  const b2bOnly = +(b2bPct * 0.63).toFixed(1);
+  const physPct = +(b2bPct - b2bOnly).toFixed(1);
+
+  const cards = [
+  { label: 'B2C (клиники с ИНН)', pct: b2cPct, type: 'Прямые', color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0', barColor: '#16A34A' },
+  { label: 'B2B (прочие юрлица)', pct: b2bOnly, type: 'Непрямые', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', barColor: '#F59E0B' },
+  { label: 'Физлица / без ИНН', pct: physPct, type: 'Непрямые', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', barColor: '#EF4444' }];
+
+  const recText = over ? 'Проверьте ИНН в отчётах и увеличьте долю прямых продаж клиникам.' : null;
+  const statusText = over ? `Непрямые продажи: ${b2bPct}% при лимите 40% — превышение` : `Непрямые продажи: ${b2bPct}% из 40% — норма.`;
+  return (
+    <BlockRow num="7" title="Мониторинг каналов сбыта"
+    recommendation={recText}
+    statusText={statusText} statusTone={over ? 'yellow' : 'green'}
+    badge="Информационный" badgeTone="info">
+      <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+        {cards.map((c, i) =>
+        <div key={i} style={{ flex: '1 1 140px', padding: '12px 14px', borderRadius: 8, background: c.bg, border: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{c.label}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c.color, lineHeight: 1, marginBottom: 2 }}>{c.pct}%</div>
+            <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 8 }}>{c.type}</div>
+            <div style={{ background: '#E5E7EB', borderRadius: 99, height: 4, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${Math.min(c.pct, 100)}%`, background: c.barColor, borderRadius: 99 }} />
+            </div>
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '7px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <span style={{ fontSize: 13, flexShrink: 0 }}>ℹ️</span>
+        <span style={{ fontSize: 11, color: '#1E40AF', lineHeight: 1.6 }}>
+          Если ИНН покупателя не заполнен в отчётах продаж — продажа попадает в категорию физлиц. Проверьте заполнение ИНН.
+        </span>
+      </div>
+    </BlockRow>);
+
+}
+
+// ─── BLOCK 7: STOCK// ─── BLOCK 7: STOCK ──────────────────────────────────────────────────────────
+function StockBlock({ sc }) {
+  const stock = sc.stock || { shelf: 4200, avgSO: 1759 };
+  const { shelf, avgSO } = stock;
+  const coverage = +(shelf / avgSO).toFixed(1);
+  const zone = coverage < 2 ? 'deficit' : 'norm';
+  const zoneLabel = { deficit: 'Дефицит', norm: 'Норма' }[zone];
+  const zoneColor = { deficit: '#DC2626', norm: '#16A34A' }[zone];
+  const zoneBg = { deficit: '#FEF2F2', norm: '#F0FDF4' }[zone];
+
+  const cards = [
+  { label: 'Остаток на складе', value: shelf.toLocaleString('ru'), unit: 'шт.', color: '#374151', bg: '#F9FAFB', border: '#E5E7EB' },
+  { label: 'Среднемесячные продажи', value: avgSO.toLocaleString('ru'), unit: 'шт./мес.', color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', sub: 'avg SO за 3 мес.' },
+  { label: 'Покрытие', value: `${coverage} мес.`, unit: zoneLabel, color: zoneColor, bg: zoneBg, border: zone === 'norm' ? '#BBF7D0' : '#FECACA' }];
+
+  const zones = [
+  { label: 'Дефицит', sub: '< 2 мес.', key: 'deficit' },
+  { label: 'Норма', sub: '≥ 2 мес.\n— текущий', key: 'norm' }];
+
+  const targetShelf = 2 * avgSO;
+  const needToShelf = Math.max(targetShelf - shelf, 0);
+  const stkRecText = zone === 'deficit' ?
+  `Пополните склад на ${needToShelf.toLocaleString('ru')} шт, чтобы обеспечить запас на 2 месяца` :
+  null;
+  const stkStatusText = zone === 'deficit' ? `${coverage} мес. — дефицит` : `${coverage} мес. — норма`;
+  return (
+    <BlockRow num="8" title="Мониторинг складских запасов"
+    recommendation={stkRecText}
+    statusText={stkStatusText}
+    statusTone={zone === 'norm' ? 'green' : 'yellow'}
+    badge="Информационный" badgeTone="info">
+      <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        {cards.map((c, i) =>
+        <div key={i} style={{ flex: '1 1 120px', padding: '12px 14px', borderRadius: 8, background: c.bg, border: `1px solid ${c.border}` }}>
+            <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>{c.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: c.color, lineHeight: 1.1, marginBottom: 2 }}>{c.value}</div>
+            <div style={{ fontSize: 11, color: c.color === '#374151' || c.color === '#2563EB' || c.color === '#6B7280' ? '#9CA3AF' : c.color, fontWeight: zone !== 'norm' && i === 2 ? 700 : 400 }}>{c.unit}</div>
+            {c.sub && <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{c.sub}</div>}
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>Зоны покрытия</div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        {zones.map((z, i) => {
+          const active = z.key === zone;
+          const bg = active ? z.key === 'norm' ? '#F0FDF4' : '#FEF2F2' : '#F9FAFB';
+          const border = active ? z.key === 'norm' ? '#BBF7D0' : '#FECACA' : '#E5E7EB';
+          const color = active ? z.key === 'norm' ? '#15803D' : '#991B1B' : '#9CA3AF';
+          return (
+            <div key={i} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: bg, border: `1px solid ${border}`, textAlign: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: active ? 700 : 500, color }}>{z.label}</div>
+              <div style={{ fontSize: 11, color, whiteSpace: 'pre-line', marginTop: 2 }}>{z.sub}</div>
+            </div>);
+        })}
+      </div>
+
+      <div style={{ fontSize: 11, color: '#2563EB', padding: '6px 10px', background: '#EFF6FF', borderRadius: 6, border: '1px solid #BFDBFE' }}>
+        Покрытие = текущий запас / средние продажи за месяц. Например: {shelf.toLocaleString('ru')} / {avgSO.toLocaleString('ru')} = {coverage} мес.
+      </div>
+    </BlockRow>);
+
+}
+
+// ─── RECOMMENDATIONS// ─── RECOMMENDATIONS ─────────────────────────────────────────────────────────
+function Recs({ sc, mode }) {
+  const recs = [];
+  if (sc.sellout.qpct < 100 && sc.sellout.months.filter((m) => m.fact != null).length < 3)
+  recs.push({ icon: '🎯', text: `SellOut ${sc.sellout.qpct}% — до +6% нужно выполнить квартал на 100%. Расставьте план по менеджерам.`, impact: '+6%', color: '#D97706' });
+  if (sc.sellin.riskZero)
+  recs.push({ icon: '⛔', text: sc.sellin.riskMsg || 'Риск обнуления SellIn — срочно наращивайте закупки.', impact: 'Блок 0%', color: '#DC2626' });
+  if (sc.sellinLines.fails.length > 0)
+  recs.push({ icon: '📦', text: `Линейки закупок: исправить ${sc.sellinLines.fails.join(', ')}. При выполнении — +${sc.sellinLines.max}% к скидке.`, impact: `+${sc.sellinLines.max}%`, color: '#D97706' });
+  if (sc.sellin.qpct >= 100 && sc.sellin.qpct < 110)
+  recs.push({ icon: '📈', text: `SellIn ${sc.sellin.qpct}% — до +3% нужно ещё ~${Math.round((1.1 - sc.sellin.qpct / 100) * 1300)} шт. Это реально.`, impact: '+1%', color: '#2563EB' });
+  if (!sc.partner.selloutOk && sc.partner.score != null)
+  recs.push({ icon: '🏆', text: 'Статус Партнёр: все показатели кроме SellOut выполнены. Приоритет — выход на 90%+ SellOut.', impact: 'до +4%', color: '#7C3AED' });
+  if (recs.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 8 }}>💡 Рекомендации</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {recs.map((r, i) =>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', background: '#F9FAFB', borderRadius: 8, border: '1px solid #E5E7EB' }}>
+            <span style={{ fontSize: 16 }}>{r.icon}</span>
+            <span style={{ flex: 1, fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{r.text}</span>
+            <Tag color={r.color} bg={r.color + '18'} style={{ flexShrink: 0 }}>{r.impact}</Tag>
+          </div>
+        )}
+      </div>
+    </div>);
+
+}
+
+// ─── TWEAKS PANEL ────────────────────────────────────────────────────────────
+function TweaksPanel({ tweaks, setTweaks, visible }) {
+  if (!visible) return null;
+  const set = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: next }, '*');
+  };
+  return (
+    <div style={{ position: 'fixed', bottom: 24, right: 24, width: 260, background: '#fff', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,.14)', padding: '18px', zIndex: 9999, border: '1px solid #E5E7EB' }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14 }}>Tweaks</div>
+      <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 3 }}>Название компании</label>
+      <input value={tweaks.company} onChange={(e) => set('company', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 12, marginBottom: 12 }} />
+      <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 6 }}>Автоматическая отчётность</label>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {[true, false].map((v) =>
+        <button key={String(v)} onClick={() => set('autoReporting', v)} style={{ flex: 1, padding: '6px', borderRadius: 7, border: `2px solid ${tweaks.autoReporting === v ? '#2563EB' : '#E5E7EB'}`, background: tweaks.autoReporting === v ? '#EFF6FF' : '#fff', fontSize: 12, fontWeight: 600, color: tweaks.autoReporting === v ? '#1D4ED8' : '#6B7280' }}>
+            {v ? 'Подключена' : 'Нет'}
+          </button>
+        )}
+      </div>
+    </div>);
+
+}
+
+// ─── APP ─────────────────────────────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [tweaksVisible, setTweaksVisible] = useState(false);
+  const [scenarioId, setScenarioId] = useState('done');
+  const [mode, setMode] = useState('settled');
+
+  const sc = SCENARIOS.find((s) => s.id === scenarioId) || SCENARIOS[5];
+  const isPartner = sc.partner?.score >= 250 && sc.partner?.selloutOk && sc.partner?.linesOk && tweaks.autoReporting;
+
+  useEffect(() => {
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksVisible(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksVisible(false);
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  const handleScenario = (id) => {
+    const s = SCENARIOS.find((x) => x.id === id);
+    setScenarioId(id);
+    setMode(s.mode);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <TopBar sc={sc} company={tweaks.company} mode={mode} onModeChange={setMode} />
+      <ScenarioBar active={scenarioId} onChange={handleScenario} />
+      <SummaryStrip sc={sc} mode={mode} isPartner={isPartner} autoReporting={tweaks.autoReporting} />
+
+      <div style={{ flex: 1, maxWidth: 960, width: '100%', margin: '0 auto', padding: '16px 20px 60px' }}>
+        <RiskBanner alerts={sc.alerts} />
+        <PartnerBlock sc={sc} autoReporting={tweaks.autoReporting} />
+        <div style={{ height: 8 }} />
+        <SellOutBlock sc={sc} isPartner={isPartner} />
+        <SellInBlock sc={sc} isPartner={isPartner} />
+        <SellInLinesBlock sc={sc} isPartner={isPartner} />
+        <SellOutLinesBlock sc={sc} />
+        <ReportingBlock sc={sc} autoReporting={tweaks.autoReporting} />
+        <ChannelsBlock sc={sc} />
+        <StockBlock sc={sc} />
+
+      </div>
+
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} visible={tweaksVisible} />
+    </div>);
+
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
