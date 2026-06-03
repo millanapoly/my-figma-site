@@ -31,6 +31,10 @@ export const router = createBrowserRouter([
       { path: "reporting", Component: Reporting },
       { path: "analytics", Component: Analytics },
       { path: "store-orders", Component: StoreOrders },
-    ],
+      ],
+  {
+    basename: "/my-figma-site",
+  }
+);
   },
 ]);
