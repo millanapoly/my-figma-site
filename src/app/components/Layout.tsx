@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Bell, User, Wallet, Download, Info, Menu, X, Home, TrendingUp, ShoppingCart, Package, DollarSign, AlertCircle as AlertCircleIcon, Award, Newspaper, FileBarChart, Percent, BarChart2 } from "lucide-react";
+import { Bell, User, Wallet, Download, Info, Menu, X, Home, TrendingUp, ShoppingCart, Package, DollarSign, AlertCircle as AlertCircleIcon, Award, Newspaper, FileBarChart, Percent, BarChart2, Store } from "lucide-react";
 import { useState } from "react";
 import { financeScenarios } from "../utils/financeScenarios";
 import { OrderBlankModal } from "./OrderBlankModal";
@@ -57,6 +57,7 @@ export function Layout() {
     { path: "/news", label: "Новости", icon: Newspaper },
     { path: "/reporting", label: "Отчётность", icon: FileBarChart },
     { path: "/analytics", label: "Аналитика", icon: BarChart2 },
+    { path: "/store-orders", label: "Заказы из магазина", icon: Store },
   ];
 
   const bottomNavItems = [
