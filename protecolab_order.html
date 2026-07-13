@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PROTECOLAB — электронный заказ-наряд</title>
+  <style>
+    :root{
+      --bg:#f4f5f7;
+      --card:#ffffff;
+      --text:#20242a;
+      --muted:#6e7681;
+      --line:#dfe3e8;
+      --accent:#a9a7a0;
+      --accent-dark:#6f706d;
+      --danger:#b42318;
+      --ok:#027a48;
+      --shadow:0 12px 40px rgba(27,31,36,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:linear-gradient(180deg,#fafafa 0%,var(--bg) 100%);
+      color:var(--text);
+    }
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(14px);
+      border-bottom:1px solid var(--line);
+    }
+    .topbar-inner{
+      max-width:1180px;margin:auto;padding:16px 24px;
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+    }
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo-mark{
+      width:42px;height:42px;border-radius:50%;
+      background:repeating-conic-gradient(from 0deg,#b6b7b3 0 6deg,transparent 6deg 12deg);
+      position:relative;
+    }
+    .logo-mark:after{
+      content:"";position:absolute;inset:12px;border-radius:50%;background:white;
+    }
+    .brand-title{font-size:22px;letter-spacing:.08em;font-weight:700;color:#8c8d89}
+    .brand-sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .progress-wrap{min-width:240px}
+    .progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+    .progress{height:7px;background:#eceff2;border-radius:999px;overflow:hidden}
+    .progress>span{display:block;height:100%;width:14%;background:#8f918d;border-radius:999px;transition:.25s}
+    main{max-width:1180px;margin:34px auto;padding:0 24px 60px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:26px}
+    .hero{
+      grid-column:1/-1;
+      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      padding:28px 30px;box-shadow:var(--shadow);
+      display:flex;justify-content:space-between;gap:24px;align-items:flex-start;
+    }
+    h1{font-size:34px;line-height:1.1;margin:0 0 10px}
+    .hero p{margin:0;color:var(--muted);max-width:760px;line-height:1.55}
+    .pill{
+      padding:9px 12px;border-radius:999px;background:#f2f2ef;border:1px solid #deded8;
+      color:#62635f;font-size:13px;white-space:nowrap
+    }
+    .form-stack{display:flex;flex-direction:column;gap:20px}
+    .section{
+      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      padding:24px;box-shadow:var(--shadow)
+    }
+    .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+    .section h2{font-size:21px;margin:0}
+    .section-desc{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.45}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    .full{grid-column:1/-1}
+    label{display:block;font-size:13px;font-weight:650;margin-bottom:7px}
+    .req{color:var(--danger)}
+    input,select,textarea{
+      width:100%;border:1px solid #cfd5dc;background:#fff;color:var(--text);
+      border-radius:12px;padding:12px 13px;font-size:15px;outline:none;transition:.18s;
+    }
+    input:focus,select:focus,textarea:focus{border-color:#8d918b;box-shadow:0 0 0 4px rgba(141,145,139,.12)}
+    textarea{min-height:120px;resize:vertical}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.4}
+    .error{display:none;font-size:12px;color:var(--danger);margin-top:6px}
+    .invalid input,.invalid select,.invalid textarea{border-color:var(--danger)}
+    .invalid .error{display:block}
+    .choice-grid{display:flex;flex-wrap:wrap;gap:10px}
+    .chip input{display:none}
+    .chip span{
+      display:inline-flex;align-items:center;padding:10px 13px;border:1px solid #d2d7dd;border-radius:999px;
+      background:white;font-size:14px;cursor:pointer;transition:.18s
+    }
+    .chip input:checked+span{background:#eceeea;border-color:#7f837d;font-weight:650}
+    .tooth-panel{
+      display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:22px;align-items:center;
+      border:1px dashed #cfd5dc;border-radius:16px;padding:18px;background:#fbfbfa
+    }
+    .teeth-svg{width:100%;height:auto;display:block}
+    .upload{
+      border:1.5px dashed #bfc6ce;border-radius:14px;padding:20px;text-align:center;background:#fbfcfd;
+      cursor:pointer
+    }
+    .upload strong{display:block;margin-bottom:6px}
+    .upload input{display:none}
+    .file-list{margin-top:12px;font-size:13px;color:var(--muted)}
+    .aside{position:sticky;top:95px;align-self:start}
+    .summary{
+      background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      padding:22px;box-shadow:var(--shadow)
+    }
+    .summary h3{margin:0 0 16px;font-size:18px}
+    .sum-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #edf0f2;font-size:13px}
+    .sum-row:last-child{border-bottom:0}
+    .sum-row span:first-child{color:var(--muted)}
+    .sum-row span:last-child{text-align:right;font-weight:650}
+    .checkline{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:13px;color:#50565d}
+    .checkline input{width:auto;margin-top:3px}
+    .submit{
+      width:100%;margin-top:18px;border:0;border-radius:13px;padding:14px 16px;
+      background:#242724;color:#fff;font-size:16px;font-weight:750;cursor:pointer;
+      transition:.18s
+    }
+    .submit:hover{transform:translateY(-1px);background:#111}
+    .submit:disabled{opacity:.55;cursor:not-allowed;transform:none}
+    .secondary{
+      width:100%;margin-top:10px;border:1px solid #cfd5dc;border-radius:13px;padding:12px 16px;
+      background:#fff;color:#333;font-weight:650;cursor:pointer
+    }
+    .hidden{display:none!important}
+    .toast{
+      position:fixed;right:24px;bottom:24px;background:#fff;border:1px solid var(--line);
+      box-shadow:var(--shadow);border-radius:14px;padding:14px 16px;min-width:300px;display:none;z-index:20
+    }
+    .toast.show{display:block}
+    .modal{
+      position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:center;justify-content:center;
+      padding:20px;z-index:30
+    }
+    .modal.show{display:flex}
+    .modal-card{
+      max-width:500px;width:100%;background:#fff;border-radius:22px;padding:30px;box-shadow:0 30px 90px rgba(0,0,0,.22);
+      text-align:center
+    }
+    .success-icon{
+      width:64px;height:64px;border-radius:50%;display:grid;place-items:center;
+      background:#ecfdf3;color:var(--ok);font-size:30px;margin:0 auto 18px
+    }
+    .modal h2{font-size:28px;margin:0 0 8px}
+    .modal p{color:var(--muted);line-height:1.5}
+    .order-number{font-size:14px;padding:10px 12px;background:#f4f5f7;border-radius:10px;margin:18px 0}
+    .mobile-submit{display:none}
+    @media(max-width:900px){
+      main{grid-template-columns:1fr}
+      .aside{position:static}
+      .hero{flex-direction:column}
+      .progress-wrap{display:none}
+      .tooth-panel{grid-template-columns:1fr}
+    }
+    @media(max-width:640px){
+      .topbar-inner{padding:13px 16px}
+      .brand-title{font-size:18px}
+      main{padding:0 14px 40px;margin-top:18px}
+      .hero,.section,.summary{padding:18px;border-radius:15px}
+      h1{font-size:27px}
+      .grid,.grid-3{grid-template-columns:1fr}
+      .full{grid-column:auto}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo-mark"></div>
+        <div>
+          <div class="brand-title">PROTECOLAB</div>
+          <div class="brand-sub">Электронный заказ-наряд</div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Заполнение формы</span><span id="progressText">14%</span></div>
+        <div class="progress"><span id="progressBar"></span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Оформите заказ-наряд онлайн</h1>
+        <p>Заполните данные пациента и работы. После отправки заказ поступит администратору PROTECOLAB, а копия придёт на вашу почту.</p>
+      </div>
+      
+    </section>
+
+    <form id="orderForm" class="form-stack" novalidate>
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>1. Клиника и отправитель</h2>
+            <div class="section-desc">Эти данные можно сохранить для следующих заказов.</div>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <label>Клиника <span class="req">*</span></label>
+            <input id="clinic" placeholder="Например, Клиника Дентал" />
+            <div class="error">Укажите клинику</div>
+          </div>
+          <div class="field">
+            <label>ФИО врача <span class="req">*</span></label>
+            <input id="doctor" placeholder="Например, Иванов И.И." />
+            <div class="error">Укажите врача</div>
+          </div>
+          <div class="field">
+            <label>Кто заполняет заказ <span class="req">*</span></label>
+            <select id="role">
+              <option value="">Выберите роль</option>
+              <option>Врач</option>
+              <option>Ассистент</option>
+              <option>Администратор</option>
+            </select>
+            <div class="error">Выберите роль</div>
+          </div>
+          <div class="field hidden" id="senderWrap">
+            <label>ФИО отправителя <span class="req">*</span></label>
+            <input id="sender" placeholder="Например, Петрова Анна" />
+            <div class="error">Укажите отправителя</div>
+          </div>
+          <div class="field hidden" id="doctorPhoneWrap">
+            <label>Телефон врача <span class="req">*</span></label>
+            <input id="doctorPhone" type="tel" placeholder="+7 999 000-00-00" />
+            <div class="error">Укажите телефон врача</div>
+            <div class="hint">Показывается, если заказ отправляет не врач.</div>
+          </div>
+          <div class="field">
+            <label>Телефон отправителя <span class="req">*</span></label>
+            <input id="phone" type="tel" placeholder="+7 999 000-00-00" />
+            <div class="error">Укажите телефон</div>
+          </div>
+          <div class="field">
+            <label>Канал для оперативной связи <span class="req">*</span></label>
+            <select id="contactChannel">
+              <option value="">Выберите канал</option>
+              <option>Телефонный звонок</option>
+              <option>Telegram</option>
+              <option>MAX</option>
+              <option>WhatsApp</option>
+              <option>Email</option>
+            </select>
+            <div class="error">Выберите канал связи</div>
+          </div>
+          <div class="field">
+            <label id="contactValueLabel">Контакт для оперативной связи <span class="req">*</span></label>
+            <input id="contactValue" placeholder="Выберите канал связи" />
+            <div class="error">Укажите контакт для оперативной связи</div>
+            <div class="hint">Например, номер телефона, @username в мессенджере или email.</div>
+          </div>
+          <div class="field">
+            <label>Email <span class="req">*</span></label>
+            <input id="email" type="email" placeholder="doctor@clinic.ru" />
+            <div class="error">Укажите корректный email</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>2. Пациент и сроки</h2>
+            <div class="section-desc">Укажите дату и время следующего приёма пациента.</div>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="field full">
+            <label>ФИО пациента <span class="req">*</span></label>
+            <input id="patient" placeholder="Допускается одно слово, например: Иванов" />
+            <div class="error">Укажите пациента</div>
+          </div>
+          <div class="field">
+            <label>Дата приёма пациента <span class="req">*</span></label>
+            <input id="visitDate" type="date" />
+            <div class="error">Укажите дату</div>
+          </div>
+          <div class="field">
+            <label>Время приёма пациента <span class="req">*</span></label>
+            <input id="visitTime" type="time" />
+            <div class="error">Укажите время</div>
+          </div>
+          <div class="field">
+            <label>Желаемая дата готовности</label>
+            <input id="readyDate" type="date" />
+            <div class="hint">Финальный срок подтвердит администратор.</div>
+          </div>
+          <div class="field">
+            <label>Срочность</label>
+            <label class="checkline" style="margin-top:10px"><input type="checkbox" id="urgent" /> <span>Срочный заказ</span></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>3. Работа и номера зубов</h2>
+            <div class="section-desc">Выберите вид работы и укажите зубы через запятую.</div>
+          </div>
+        </div>
+        <div>
+          <label>Вид работы <span class="req">*</span></label>
+          <div class="choice-grid" id="workTypes">
+            <label class="chip"><input type="checkbox" value="Коронка"><span>Коронка</span></label>
+            <label class="chip"><input type="checkbox" value="Мостовидный протез"><span>Мостовидный протез</span></label>
+            <label class="chip"><input type="checkbox" value="Винир"><span>Винир</span></label>
+            <label class="chip"><input type="checkbox" value="Вкладка / накладка"><span>Вкладка / накладка</span></label>
+            <label class="chip"><input type="checkbox" value="Съёмный протез"><span>Съёмный протез</span></label>
+            <label class="chip"><input type="checkbox" value="Капа"><span>Капа</span></label>
+            <label class="chip"><input type="checkbox" value="Wax-up"><span>Wax-up</span></label>
+            <label class="chip"><input type="checkbox" value="Хирургический шаблон"><span>Хирургический шаблон</span></label>
+            <label class="chip"><input type="checkbox" value="Другое" id="otherWork"><span>Другое</span></label>
+          </div>
+          <div class="error" id="workError">Выберите хотя бы один вид работы</div>
+          <div class="field hidden" id="otherWorkWrap" style="margin-top:14px">
+            <input id="otherWorkText" placeholder="Укажите вид работы" />
+          </div>
+        </div>
+
+        <div class="tooth-panel" style="margin-top:20px">
+          <svg class="teeth-svg" viewBox="0 0 780 230" aria-label="Схема зубов">
+            <rect x="0" y="0" width="780" height="230" rx="20" fill="#fff"/>
+            <g font-family="Arial" font-size="15" fill="#7b8087" text-anchor="middle">
+              <text x="60" y="28">18</text><text x="105" y="28">17</text><text x="150" y="28">16</text><text x="195" y="28">15</text>
+              <text x="240" y="28">14</text><text x="285" y="28">13</text><text x="330" y="28">12</text><text x="375" y="28">11</text>
+              <text x="405" y="28">21</text><text x="450" y="28">22</text><text x="495" y="28">23</text><text x="540" y="28">24</text>
+              <text x="585" y="28">25</text><text x="630" y="28">26</text><text x="675" y="28">27</text><text x="720" y="28">28</text>
+
+              <text x="60" y="215">48</text><text x="105" y="215">47</text><text x="150" y="215">46</text><text x="195" y="215">45</text>
+              <text x="240" y="215">44</text><text x="285" y="215">43</text><text x="330" y="215">42</text><text x="375" y="215">41</text>
+              <text x="405" y="215">31</text><text x="450" y="215">32</text><text x="495" y="215">33</text><text x="540" y="215">34</text>
+              <text x="585" y="215">35</text><text x="630" y="215">36</text><text x="675" y="215">37</text><text x="720" y="215">38</text>
+            </g>
+            <g fill="#f8f8f6" stroke="#555" stroke-width="2">
+              <path d="M44 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M89 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M134 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M179 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M224 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M269 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M314 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M359 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M389 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M434 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M479 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M524 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M569 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M614 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+              <path d="M659 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/><path d="M704 48 q16-18 32 0 l-5 55 q-11 13-22 0z"/>
+
+              <path d="M44 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M89 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M134 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M179 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M224 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M269 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M314 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M359 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M389 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M434 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M479 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M524 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M569 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M614 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+              <path d="M659 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/><path d="M704 126 q16 18 32 0 l-5 55 q-11 12-22 0z"/>
+            </g>
+          </svg>
+          <div class="field">
+            <label>Номера зубов <span class="req">*</span></label>
+            <input id="teeth" placeholder="11, 12, 21" />
+            <div class="hint">Используйте систему FDI и разделяйте номера запятыми.</div>
+            <div class="error">Проверьте номера зубов</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>4. Материал и конструкция</h2>
+            <div class="section-desc">Параметры можно будет уточнить с техником.</div>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="field full">
+            <label>Материал / вид конструкции <span class="req">*</span></label>
+            <div class="choice-grid" id="materialChoices">
+              <label class="chip"><input type="radio" name="materialChoice" value="CoCr"><span>CoCr</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="ZrO₂"><span>ZrO₂</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Ti"><span>Ti</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="E-max"><span>E-max</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="PMMA"><span>PMMA</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Цельный ZrO₂"><span>Цельный ZrO₂</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="ПСП"><span>ПСП</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="ЧСП"><span>ЧСП</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Капа"><span>Капа</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Wax-up"><span>Wax-up</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Хирургический шаблон"><span>Хирургический шаблон</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="МК"><span>МК</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Определить совместно с техником"><span>Определить с техником</span></label>
+              <label class="chip"><input type="radio" name="materialChoice" value="Другое"><span>Другое</span></label>
+            </div>
+            <input type="hidden" id="material" />
+            <div class="error" id="materialError">Выберите материал или вид конструкции</div>
+          </div>
+          <div class="field">
+            <label>Цвет реставрации <span class="req">*</span></label>
+            <select id="shade">
+              <option value="">Выберите оттенок по шкале VITA</option>
+              <option>A1</option><option>A2</option><option>A3</option><option>A3,5</option><option>A4</option>
+              <option>B1</option><option>B2</option><option>B3</option><option>B4</option>
+              <option>C1</option><option>C2</option><option>C3</option><option>C4</option>
+              <option>D2</option><option>D3</option><option>D4</option>
+              <option>BL1</option><option>BL2</option><option>BL3</option>
+              <option>Определить по фотографии</option>
+              <option>Определить совместно с техником</option>
+              <option>Не применяется</option>
+              <option>Другое</option>
+            </select>
+            <div class="error">Выберите цвет реставрации или вариант «Не применяется»</div>
+            <div class="hint">Выберите оттенок по шкале VITA или укажите, что цвет нужно определить по фотографии.</div>
+          </div>
+          <div class="field">
+            <label>Работа на имплантате?</label>
+            <select id="implant">
+              <option value="Нет">Нет</option>
+              <option value="Да">Да</option>
+            </select>
+          </div>
+          <div class="field hidden" id="implantSystemWrap">
+            <label>Имплантационная система: марка <span class="req">*</span></label>
+            <input id="implantSystem" placeholder="Например, Straumann BLT" />
+            <div class="error">Укажите систему</div>
+          </div>
+          <div class="field hidden" id="implantSizeWrap">
+            <label>Размер имплантата</label>
+            <input id="implantSize" placeholder="Например, 4.1 мм" />
+          </div>
+          <div class="field hidden" id="fixationWrap">
+            <label>Тип фиксации <span class="req">*</span></label>
+            <select id="fixation">
+              <option value="">Выберите тип</option>
+              <option>Винтовая</option>
+              <option>Цементная</option>
+              <option>Определить совместно с техником</option>
+            </select>
+            <div class="error">Выберите тип фиксации</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>5. Фотографии и файлы</h2>
+            <div class="section-desc">Сначала выберите, как вы передадите материалы. Можно выбрать несколько вариантов.</div>
+          </div>
+        </div>
+
+        <div class="field full">
+          <label>Как вы передадите материалы? <span class="req">*</span></label>
+          <div class="choice-grid" id="materialsOptions">
+            <label class="chip"><input type="checkbox" value="photos" id="materialsPhotos"><span>Прикреплю фотографии к форме</span></label>
+            <label class="chip"><input type="checkbox" value="link" id="materialsLink"><span>Передам STL / сканы по ссылке</span></label>
+            <label class="chip"><input type="checkbox" value="courier" id="materialsCourier"><span>Передам физические слепки курьером</span></label>
+            <label class="chip"><input type="checkbox" value="separate" id="materialsSeparate"><span>Отправлю материалы отдельно</span></label>
+          </div>
+          <div class="error" id="materialsOptionsError">Выберите хотя бы один способ передачи материалов</div>
+        </div>
+
+        <div class="grid" style="margin-top:18px">
+          <div class="full hidden" id="photosBlock">
+            <label class="upload" for="photos">
+              <input id="photos" type="file" accept=".jpg,.jpeg,.png,.heic" multiple />
+              <strong>Добавить фотографии</strong>
+              <span>JPG, PNG или HEIC · до 10 файлов · общий лимит 20 МБ</span>
+            </label>
+            <div id="fileList" class="file-list">Файлы не выбраны</div>
+          </div>
+
+          <div class="field full hidden" id="linkBlock">
+            <label>Ссылка на STL / сканы <span class="req">*</span></label>
+            <input id="stlLink" type="url" placeholder="https://disk.yandex.ru/..." />
+            <div class="error">Укажите ссылку на файлы</div>
+            <div class="hint">Можно использовать Яндекс Диск, Облако Mail.ru, Google Drive или другое хранилище.</div>
+          </div>
+
+          <div class="full hidden" id="courierBlock">
+            <div style="padding:14px 16px;border:1px solid #dfe3e8;border-radius:12px;background:#f8f9fa;color:#50565d;font-size:14px;line-height:1.5">
+              Физические слепки или модели будут переданы курьером. Дополнительные файлы прикладывать не обязательно.
+            </div>
+          </div>
+
+          <div class="grid full hidden" id="separateBlock">
+            <div class="field">
+              <label>Куда отправите материалы? <span class="req">*</span></label>
+              <select id="separateChannel">
+                <option value="">Выберите канал</option>
+                <option>Telegram</option>
+                <option>MAX</option>
+                <option>Email</option>
+                <option>Другое</option>
+              </select>
+              <div class="error">Выберите канал</div>
+            </div>
+            <div class="field">
+              <label>Контакт или комментарий <span class="req">*</span></label>
+              <input id="separateContact" placeholder="@username, email или комментарий" />
+              <div class="error">Укажите контакт или комментарий</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>6. Комментарий для техника</h2>
+            <div class="section-desc">Опишите задачу и важные особенности клинической ситуации.</div>
+          </div>
+        </div>
+        <div class="field">
+          <textarea id="comment" placeholder="Например: изготовить коронки 11 и 21, сохранить естественную форму, ориентироваться на фото..."></textarea>
+          <div class="error">Добавьте комментарий не короче 10 символов</div>
+        </div>
+      </section>
+    </form>
+
+    <aside class="aside">
+      <div class="summary">
+        <h3>Проверка заказа</h3>
+        <div class="sum-row"><span>Клиника</span><span id="sumClinic">—</span></div>
+        <div class="sum-row"><span>Врач</span><span id="sumDoctor">—</span></div>
+        <div class="sum-row"><span>Пациент</span><span id="sumPatient">—</span></div>
+        <div class="sum-row"><span>Дата приёма</span><span id="sumVisit">—</span></div>
+        <div class="sum-row"><span>Зубы</span><span id="sumTeeth">—</span></div>
+        <div class="sum-row"><span>Материал</span><span id="sumMaterial">—</span></div>
+        <label class="checkline">
+          <input type="checkbox" id="consent" />
+          <span>Я подтверждаю право передавать данные и соглашаюсь с политикой обработки персональных данных.</span>
+        </label>
+        <button class="submit" id="submitBtn" type="button">Отправить заказ-наряд</button>
+        <button class="secondary" id="fillDemo" type="button">Заполнить демо-данными</button>
+        
+      </div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="modal" id="successModal">
+    <div class="modal-card">
+      <div class="success-icon">✓</div>
+      <h2>Ваш заказ принят</h2>
+      <p>С вами свяжется администратор.</p>
+      <div class="order-number">Номер заказа: <strong id="orderNumber"></strong></div>
+      <button class="submit" id="newOrderBtn">Создать ещё один заказ</button>
+      <button class="secondary" id="closeModalBtn">Закрыть</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const ids = ["clinic","doctor","role","sender","doctorPhone","phone","contactChannel","contactValue","email","patient","visitDate","visitTime","readyDate","teeth","material","shade","implant","implantSystem","implantSize","fixation","stlLink","separateChannel","separateContact","comment"];
+
+function showToast(text){
+  const t=$("toast"); t.textContent=text; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2600);
+}
+function updateConditional(){
+  const role=$("role").value;
+  $("senderWrap").classList.toggle("hidden", role==="" || role==="Врач");
+  $("doctorPhoneWrap").classList.toggle("hidden", role==="" || role==="Врач");
+  const imp=$("implant").value==="Да";
+  ["implantSystemWrap","implantSizeWrap","fixationWrap"].forEach(id=>$(id).classList.toggle("hidden",!imp));
+  $("otherWorkWrap").classList.toggle("hidden",!$("otherWork").checked);
+}
+function summary(){
+  $("sumClinic").textContent=$("clinic").value||"—";
+  $("sumDoctor").textContent=$("doctor").value||"—";
+  $("sumPatient").textContent=$("patient").value||"—";
+  $("sumVisit").textContent=($("visitDate").value||"—")+" "+($("visitTime").value||"");
+  $("sumTeeth").textContent=$("teeth").value||"—";
+  $("sumMaterial").textContent=$("material").value||"—";
+  const required=["clinic","doctor","role","phone","contactChannel","contactValue","email","patient","visitDate","visitTime","teeth","material","shade","comment"];
+  const completed=required.filter(id=>$(id).value.trim()).length;
+  const workChecked=[...document.querySelectorAll("#workTypes input:checked")].length>0;
+  const pct=Math.min(100,Math.round(((completed+(workChecked?1:0))/(required.length+1))*100));
+  $("progressBar").style.width=pct+"%"; $("progressText").textContent=pct+"%";
+}
+function validTeeth(v){
+  if(!v.trim()) return false;
+  const arr=v.split(",").map(x=>x.trim()).filter(Boolean);
+  const allowed=[];
+  [[11,18],[21,28],[31,38],[41,48]].forEach(([a,b])=>{for(let i=a;i<=b;i++)allowed.push(String(i))});
+  return arr.length>0 && arr.every(x=>allowed.includes(x));
+}
+function setInvalid(id,bad){
+  const el=$(id); const field=el.closest(".field");
+  if(field) field.classList.toggle("invalid",bad);
+}
+function validate(){
+  let ok=true;
+  const req=["clinic","doctor","role","phone","contactChannel","contactValue","email","patient","visitDate","visitTime","material","shade"];
+  req.forEach(id=>{
+    const bad=!$(id).value.trim();
+    if(id==="material"){
+      $("materialError").style.display=bad?"block":"none";
+    } else {
+      setInvalid(id,bad);
+    }
+    if(bad)ok=false
+  });
+  if($("role").value && $("role").value!=="Врач"){
+    const bad=!$("sender").value.trim();setInvalid("sender",bad);if(bad)ok=false;
+    const badPhone=!$("doctorPhone").value.trim();setInvalid("doctorPhone",badPhone);if(badPhone)ok=false;
+  }
+  const emailBad=!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("email").value); setInvalid("email",emailBad); if(emailBad)ok=false;
+  const teethBad=!validTeeth($("teeth").value);setInvalid("teeth",teethBad);if(teethBad)ok=false;
+  const commBad=$("comment").value.trim().length<10;setInvalid("comment",commBad);if(commBad)ok=false;
+  const work=[...document.querySelectorAll("#workTypes input:checked")];
+  $("workError").style.display=work.length?"none":"block"; if(!work.length)ok=false;
+  const anyMaterials = $("materialsPhotos").checked || $("materialsLink").checked || $("materialsCourier").checked || $("materialsSeparate").checked;
+  $("materialsOptionsError").style.display = anyMaterials ? "none" : "block";
+  if(!anyMaterials) ok=false;
+
+  if($("materialsLink").checked){
+    const bad=!$("stlLink").value.trim();
+    setInvalid("stlLink",bad);
+    if(bad) ok=false;
+  } else {
+    setInvalid("stlLink",false);
+  }
+
+  if($("materialsSeparate").checked){
+    const badChannel=!$("separateChannel").value.trim();
+    const badContact=!$("separateContact").value.trim();
+    setInvalid("separateChannel",badChannel);
+    setInvalid("separateContact",badContact);
+    if(badChannel||badContact) ok=false;
+  } else {
+    setInvalid("separateChannel",false);
+    setInvalid("separateContact",false);
+  }
+
+  if($("implant").value==="Да"){
+    const a=!$("implantSystem").value.trim(), b=!$("fixation").value.trim();
+    setInvalid("implantSystem",a);setInvalid("fixation",b);if(a||b)ok=false;
+  }
+  if(!$("consent").checked){showToast("Подтвердите согласие на обработку данных");ok=false}
+  if(!ok){
+    const first=document.querySelector(".invalid, #workError[style*='block']");
+    if(first) first.scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  return ok;
+}
+function saveRemembered(){}
+function loadRemembered(){}
+$("role").addEventListener("change",updateConditional);
+$("contactChannel").addEventListener("change",()=>{
+  const channel=$("contactChannel").value;
+  const label=$("contactValueLabel");
+  const input=$("contactValue");
+  const map={
+    "Телефонный звонок":["Номер для оперативной связи","Например, +7 999 000-00-00"],
+    "Telegram":["Telegram для оперативной связи","Например, @doctor или +7 999 000-00-00"],
+    "MAX":["MAX для оперативной связи","Укажите номер телефона"],
+    "WhatsApp":["WhatsApp для оперативной связи","Укажите номер телефона"],
+    "Email":["Email для оперативной связи","Например, doctor@clinic.ru"]
+  };
+  const value=map[channel]||["Контакт для оперативной связи","Выберите канал связи"];
+  label.innerHTML=value[0]+' <span class="req">*</span>';
+  input.placeholder=value[1];
+  summary();
+});
+$("implant").addEventListener("change",updateConditional);
+$("otherWork").addEventListener("change",updateConditional);
+ids.forEach(id=>$(id)?.addEventListener("input",summary));
+document.querySelectorAll("#workTypes input").forEach(el=>el.addEventListener("change",summary));
+document.querySelectorAll('#materialChoices input[name="materialChoice"]').forEach(el=>{
+  el.addEventListener("change",()=>{
+    $("material").value=el.value;
+    $("materialError").style.display="none";
+    summary();
+  });
+});
+
+function updateMaterialsBlocks(){
+  const photos=$("materialsPhotos").checked;
+  const link=$("materialsLink").checked;
+  const courier=$("materialsCourier").checked;
+  const separate=$("materialsSeparate").checked;
+
+  $("photosBlock").classList.toggle("hidden",!photos);
+  $("linkBlock").classList.toggle("hidden",!link);
+  $("courierBlock").classList.toggle("hidden",!courier);
+  $("separateBlock").classList.toggle("hidden",!separate);
+
+  $("materialsOptionsError").style.display=(photos||link||courier||separate)?"none":"block";
+  summary();
+}
+["materialsPhotos","materialsLink","materialsCourier","materialsSeparate"].forEach(id=>{
+  $(id).addEventListener("change",updateMaterialsBlocks);
+});
+
+$("photos").addEventListener("change",e=>{
+  const files=[...e.target.files];
+  const total=files.reduce((s,f)=>s+f.size,0);
+  if(files.length>10 || total>20*1024*1024){
+    showToast("Превышен лимит: до 10 файлов и до 20 МБ суммарно");
+    e.target.value=""; $("fileList").textContent="Файлы не выбраны"; return;
+  }
+  $("fileList").textContent=files.length?files.map(f=>f.name).join(", "):"Файлы не выбраны";
+});
+
+$("fillDemo").addEventListener("click",()=>{
+  const demo={
+    clinic:"Клиника «Белая линия»",doctor:"Иванов И.И.",role:"Ассистент",sender:"Петрова Анна",
+    doctorPhone:"+7 921 555-98-76",phone:"+7 921 555-12-34",contactChannel:"Telegram",contactValue:"@doctor_ivanov",email:"doctor@clinic.ru",patient:"Смирнов",visitDate:"2026-07-18",
+    visitTime:"14:30",readyDate:"2026-07-17",teeth:"11, 12, 21",material:"ZrO₂",shade:"A2",
+    implant:"Нет",
+    comment:"Изготовить три коронки, сохранить естественную форму и ориентироваться на приложенные фотографии."
+  };
+  Object.entries(demo).forEach(([k,v])=>{
+    if(k!=="material" && $(k)) $(k).value=v;
+  });
+  const materialRadio=document.querySelector('#materialChoices input[value="'+demo.material+'"]');
+  if(materialRadio){ materialRadio.checked=true; $("material").value=demo.material; }
+  document.querySelector('#workTypes input[value="Коронка"]').checked=true;
+  $("materialsPhotos").checked=true;
+  updateMaterialsBlocks();
+  updateConditional();summary();showToast("Демо-данные заполнены");
+});
+
+$("submitBtn").addEventListener("click",()=>{
+  if(!validate()) return;
+  saveRemembered();
+  $("submitBtn").disabled=true;$("submitBtn").textContent="Отправляем...";
+  setTimeout(()=>{
+    const now=new Date(); const n=String(Math.floor(Math.random()*9000)+1000);
+    const num=`PL-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}-${n}`;
+    $("orderNumber").textContent=num;
+    $("successModal").classList.add("show");
+    $("submitBtn").disabled=false;$("submitBtn").textContent="Отправить заказ-наряд";
+  },900);
+});
+$("newOrderBtn").addEventListener("click",()=>{
+  const keep={clinic:$("clinic").value,doctor:$("doctor").value,role:$("role").value,sender:$("sender").value,doctorPhone:$("doctorPhone").value,phone:$("phone").value,contactChannel:$("contactChannel").value,contactValue:$("contactValue").value,email:$("email").value};
+  $("orderForm").reset();
+  Object.entries(keep).forEach(([k,v])=>$(k).value=v);
+  document.querySelectorAll("#workTypes input").forEach(x=>x.checked=false);
+  document.querySelectorAll('#materialChoices input[name="materialChoice"]').forEach(x=>x.checked=false);
+  $("material").value="";
+  ["materialsPhotos","materialsLink","materialsCourier","materialsSeparate"].forEach(id=>$(id).checked=false);
+  $("stlLink").value="";
+  $("separateChannel").value="";
+  $("separateContact").value="";
+  updateMaterialsBlocks();
+  $("consent").checked=false;$("successModal").classList.remove("show");updateConditional();summary();window.scrollTo({top:0,behavior:"smooth"});
+});
+$("closeModalBtn").addEventListener("click",()=>$("successModal").classList.remove("show"));
+loadRemembered();updateConditional();updateMaterialsBlocks();summary();
+</script>
+</body>
+</html>
