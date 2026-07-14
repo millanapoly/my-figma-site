@@ -282,12 +282,12 @@
           <div class="field">
             <label>Дата приёма пациента <span class="req">*</span></label>
             <input id="visitDate" type="date" />
-            <div class="error">Укажите дату</div>
+            <div class="error">Выберите дату и время не ранее чем через 24 часа</div>
           </div>
           <div class="field">
             <label>Время приёма пациента <span class="req">*</span></label>
             <input id="visitTime" type="time" />
-            <div class="error">Укажите время</div>
+            <div class="error">Выберите дату и время не ранее чем через 24 часа</div>
           </div>
           <div class="field">
             <label>Желаемая дата готовности</label>
@@ -548,7 +548,7 @@
     <div class="modal-card">
       <div class="success-icon">✓</div>
       <h2>Ваш заказ принят</h2>
-      <p>С вами свяжется администратор.</p>
+      <p>Данные отправлены на Ваш email.<br>С Вами свяжется сотрудник лаборатории.</p>
       <div class="order-number">Номер заказа: <strong id="orderNumber"></strong></div>
       <button class="submit" id="newOrderBtn">Создать ещё один заказ</button>
       <button class="secondary" id="closeModalBtn">Закрыть</button>
@@ -595,6 +595,36 @@ function setInvalid(id,bad){
   const el=$(id); const field=el.closest(".field");
   if(field) field.classList.toggle("invalid",bad);
 }
+function pad2(value){
+  return String(value).padStart(2,"0");
+}
+
+function toLocalDateInputValue(date){
+  return `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
+}
+
+function getMinimumVisitDateTime(){
+  return new Date(Date.now() + 24 * 60 * 60 * 1000);
+}
+
+function updateVisitLimits(){
+  const minDateTime = getMinimumVisitDateTime();
+  $("visitDate").min = toLocalDateInputValue(minDateTime);
+
+  const selectedDate = $("visitDate").value;
+  if(selectedDate === toLocalDateInputValue(minDateTime)){
+    $("visitTime").min = `${pad2(minDateTime.getHours())}:${pad2(minDateTime.getMinutes())}`;
+  } else {
+    $("visitTime").removeAttribute("min");
+  }
+}
+
+function isVisitDateTimeValid(){
+  if(!$("visitDate").value || !$("visitTime").value) return false;
+  const selected = new Date(`${$("visitDate").value}T${$("visitTime").value}:00`);
+  return selected.getTime() >= getMinimumVisitDateTime().getTime();
+}
+
 function validate(){
   let ok=true;
   const req=["clinic","doctor","role","phone","contactChannel","contactValue","email","patient","visitDate","visitTime","material","shade"];
@@ -612,6 +642,10 @@ function validate(){
     const badPhone=!$("doctorPhone").value.trim();setInvalid("doctorPhone",badPhone);if(badPhone)ok=false;
   }
   const emailBad=!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("email").value); setInvalid("email",emailBad); if(emailBad)ok=false;
+  const visitBad=!isVisitDateTimeValid();
+  setInvalid("visitDate",visitBad);
+  setInvalid("visitTime",visitBad);
+  if(visitBad) ok=false;
   const teethBad=!validTeeth($("teeth").value);setInvalid("teeth",teethBad);if(teethBad)ok=false;
   const commBad=$("comment").value.trim().length<10;setInvalid("comment",commBad);if(commBad)ok=false;
   const work=[...document.querySelectorAll("#workTypes input:checked")];
@@ -652,6 +686,24 @@ function validate(){
 }
 function saveRemembered(){}
 function loadRemembered(){}
+$("visitDate").addEventListener("change",()=>{
+  updateVisitLimits();
+  if($("visitDate").value && $("visitTime").value && !isVisitDateTimeValid()){
+    $("visitTime").value="";
+  }
+  summary();
+});
+$("visitTime").addEventListener("change",()=>{
+  if($("visitDate").value && $("visitTime").value && !isVisitDateTimeValid()){
+    setInvalid("visitDate",true);
+    setInvalid("visitTime",true);
+    showToast("Дата и время приёма должны быть не ранее чем через 24 часа");
+  } else {
+    setInvalid("visitDate",false);
+    setInvalid("visitTime",false);
+  }
+  summary();
+});
 $("role").addEventListener("change",updateConditional);
 $("contactChannel").addEventListener("change",()=>{
   const channel=$("contactChannel").value;
@@ -712,8 +764,8 @@ $("photos").addEventListener("change",e=>{
 $("fillDemo").addEventListener("click",()=>{
   const demo={
     clinic:"Клиника «Белая линия»",doctor:"Иванов И.И.",role:"Ассистент",sender:"Петрова Анна",
-    doctorPhone:"+7 921 555-98-76",phone:"+7 921 555-12-34",contactChannel:"Telegram",contactValue:"@doctor_ivanov",email:"doctor@clinic.ru",patient:"Смирнов",visitDate:"2026-07-18",
-    visitTime:"14:30",readyDate:"2026-07-17",teeth:"11, 12, 21",material:"ZrO₂",shade:"A2",
+    doctorPhone:"+7 921 555-98-76",phone:"+7 921 555-12-34",contactChannel:"Telegram",contactValue:"@doctor_ivanov",email:"doctor@clinic.ru",patient:"Смирнов",visitDate:toLocalDateInputValue(new Date(Date.now()+48*60*60*1000)),
+    visitTime:"14:30",readyDate:toLocalDateInputValue(new Date(Date.now()+72*60*60*1000)),teeth:"11, 12, 21",material:"ZrO₂",shade:"A2",
     implant:"Нет",
     comment:"Изготовить три коронки, сохранить естественную форму и ориентироваться на приложенные фотографии."
   };
@@ -755,7 +807,7 @@ $("newOrderBtn").addEventListener("click",()=>{
   $("consent").checked=false;$("successModal").classList.remove("show");updateConditional();summary();window.scrollTo({top:0,behavior:"smooth"});
 });
 $("closeModalBtn").addEventListener("click",()=>$("successModal").classList.remove("show"));
-loadRemembered();updateConditional();updateMaterialsBlocks();summary();
+loadRemembered();updateConditional();updateMaterialsBlocks();updateVisitLimits();summary();
 </script>
 </body>
 </html>
