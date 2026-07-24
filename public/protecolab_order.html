@@ -184,14 +184,14 @@
       <section class="section">
         <div class="section-head">
           <div>
-            <h2>1. Клиника и врач</h2>
-            <div class="section-desc">Укажите контакты врача, который сможет ответить на технические вопросы по работе.</div>
+            <h2>1. Клиника и отправитель</h2>
+            <div class="section-desc">Укажите данные клиники, врача и удобный канал для оперативной связи.</div>
           </div>
         </div>
         <div class="grid">
           <div class="field">
             <label>Клиника <span class="req">*</span></label>
-            <input id="clinic" placeholder="Например, Клиника «Белая линия»" />
+            <input id="clinic" placeholder="Например, Клиника Дентал" />
             <div class="error">Укажите клинику</div>
           </div>
           <div class="field">
@@ -203,6 +203,23 @@
             <label>Телефон врача <span class="req">*</span></label>
             <input id="doctorPhone" type="tel" placeholder="+7 999 000-00-00" />
             <div class="error">Укажите телефон врача</div>
+          </div>
+          <div class="field">
+            <label>Канал для оперативной связи <span class="req">*</span></label>
+            <select id="contactChannel">
+              <option value="">Выберите канал</option>
+              <option value="Телефонный звонок">Телефонный звонок</option>
+              <option value="Telegram">Telegram</option>
+              <option value="MAX">MAX</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Email">Email</option>
+            </select>
+            <div class="error">Выберите канал связи</div>
+          </div>
+          <div class="field hidden" id="contactValueWrap">
+            <label id="contactValueLabel">Контакт для оперативной связи <span class="req">*</span></label>
+            <input id="contactValue" placeholder="Укажите контакт" />
+            <div class="error">Укажите контакт для оперативной связи</div>
           </div>
           <div class="field">
             <label>Email для отправки копии заказа <span class="req">*</span></label>
@@ -626,7 +643,7 @@ function updateSummary(){
   $("sumVisit").textContent=($("visitDate").value||"—")+" "+($("visitTime").value||"");
   $("sumConstructions").textContent=document.querySelectorAll(".construction-card").length;
 
-  const base = ["clinic","doctor","doctorPhone","email","patient","visitDate","visitTime","shade"];
+  const base = ["clinic","doctor","doctorPhone","contactChannel","email","patient","visitDate","visitTime","shade"];
   let done = base.filter(id=>$(id).value.trim()).length;
   let total = base.length;
 
@@ -648,12 +665,20 @@ function updateSummary(){
 function validate(){
   let ok=true;
 
-  ["clinic","doctor","doctorPhone","email","patient","visitDate","visitTime","shade"].forEach(id=>{
+  ["clinic","doctor","doctorPhone","contactChannel","email","patient","visitDate","visitTime","shade"].forEach(id=>{
     const el=$(id);
     const bad=!el.value.trim();
     setInvalidElement(el,bad);
     if(bad) ok=false;
   });
+
+  if($("contactChannel").value && $("contactChannel").value!=="Телефонный звонок"){
+    const contactBad=!$("contactValue").value.trim();
+    setInvalidElement($("contactValue"),contactBad);
+    if(contactBad) ok=false;
+  } else {
+    setInvalidElement($("contactValue"),false);
+  }
 
   const emailBad=!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($("email").value);
   setInvalidElement($("email"),emailBad);
@@ -761,6 +786,27 @@ function validate(){
   return ok;
 }
 
+$("contactChannel").addEventListener("change",()=>{
+  const channel=$("contactChannel").value;
+  const wrap=$("contactValueWrap");
+  const map={
+    "Telegram":["Telegram для оперативной связи","Например, @doctor или +7 999 000-00-00"],
+    "MAX":["MAX для оперативной связи","Укажите номер телефона"],
+    "WhatsApp":["WhatsApp для оперативной связи","Укажите номер телефона"],
+    "Email":["Email для оперативной связи","Например, doctor@clinic.ru"]
+  };
+  if(channel && channel!=="Телефонный звонок"){
+    wrap.classList.remove("hidden");
+    const value=map[channel]||["Контакт для оперативной связи","Укажите контакт"];
+    $("contactValueLabel").innerHTML=value[0]+' <span class="req">*</span>';
+    $("contactValue").placeholder=value[1];
+  } else {
+    wrap.classList.add("hidden");
+    $("contactValue").value="";
+  }
+  updateSummary();
+});
+
 $("addConstructionBtn").addEventListener("click",createConstruction);
 
 $("urgent").addEventListener("change",()=>{
@@ -796,7 +842,7 @@ $("visitDate").addEventListener("change",()=>{
 });
 $("visitTime").addEventListener("change",updateSummary);
 
-["clinic","doctor","doctorPhone","email","patient","readyDate","shadeOther","stlLink","separateChannel","separateContact","comment"].forEach(id=>{
+["clinic","doctor","doctorPhone","contactChannel","contactValue","email","patient","readyDate","shadeOther","stlLink","separateChannel","separateContact","comment"].forEach(id=>{
   $(id).addEventListener("input",updateSummary);
 });
 
@@ -804,6 +850,9 @@ $("fillDemo").addEventListener("click",()=>{
   $("clinic").value="Клиника «Белая линия»";
   $("doctor").value="Иванов И.И.";
   $("doctorPhone").value="+7 921 555-12-34";
+  $("contactChannel").value="WhatsApp";
+  $("contactValue").value="+7 921 555-12-34";
+  $("contactValueWrap").classList.remove("hidden");
   $("email").value="doctor@clinic.ru";
   $("patient").value="Смирнов";
   $("visitDate").value=toLocalDateInputValue(new Date(Date.now()+48*60*60*1000));
